@@ -14,6 +14,10 @@ export interface BacktestConfig {
   fromDate?: string;
   /** End date filter "YYYY-MM-DD" inclusive (optional) */
   toDate?: string;
+  /** Multiply all spreads by this factor (default: 1.0). Use 2.0 to stress-test wider spreads */
+  spreadMultiplier?: number;
+  /** Delay order execution by this many ticks on the same instrument (default: 0) */
+  executionDelay?: number;
 }
 
 /** Signal snapshot captured at entry or exit */

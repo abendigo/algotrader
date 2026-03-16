@@ -34,17 +34,25 @@ export class BacktestBroker implements Broker {
   private tradeLog: Trade[] = [];
   private orderCounter = 0;
   private spread: number | Record<string, number>;
+  private spreadMultiplier: number;
   private pendingEntrySignal?: SignalSnapshot;
   private pendingExitSignal?: SignalSnapshot;
 
-  constructor(initialBalance: number, spread: number | Record<string, number>) {
+  constructor(
+    initialBalance: number,
+    spread: number | Record<string, number>,
+    spreadMultiplier: number = 1.0,
+  ) {
     this.balance = initialBalance;
     this.spread = spread;
+    this.spreadMultiplier = spreadMultiplier;
   }
 
   private getSpread(instrument: Instrument): number {
-    if (typeof this.spread === "number") return this.spread;
-    return this.spread[instrument] ?? 0.0002; // fallback
+    const base = typeof this.spread === "number"
+      ? this.spread
+      : (this.spread[instrument] ?? 0.0002);
+    return base * this.spreadMultiplier;
   }
 
   /** Attach a signal snapshot to the next order (entry) */

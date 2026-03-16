@@ -28,6 +28,8 @@ export async function runBacktest(
     instruments: requestedInstruments,
     fromDate,
     toDate,
+    spreadMultiplier = 1.0,
+    executionDelay = 0,
   } = config;
 
   // Discover instruments from data directory if not specified
@@ -42,19 +44,47 @@ export async function runBacktest(
     );
   }
 
-  const broker = new BacktestBroker(initialBalance, spread);
+  const broker = new BacktestBroker(initialBalance, spread, spreadMultiplier);
   const ctx = { broker };
 
   // Initialize strategy
   await strategy.init(ctx);
 
   // Replay
+  // When executionDelay > 0, the strategy sees a delayed tick (simulating
+  // signal detection latency) while the broker fills at the current price.
+  // We buffer ticks per instrument and feed the strategy the tick from
+  // N ticks ago on that instrument.
+  const tickBuffers = new Map<Instrument, Tick[]>();
   const equityCurve: [number, number][] = [];
   let lastEquityTime = 0;
 
   for (const tick of timeline) {
+    // Broker always sees current price (this is what fills execute at)
     broker.setTick(tick);
-    await strategy.onTick(ctx, tick);
+
+    // Determine which tick the strategy sees
+    let strategyTick = tick;
+    if (executionDelay > 0) {
+      const buffer = tickBuffers.get(tick.instrument) ?? [];
+      buffer.push(tick);
+      tickBuffers.set(tick.instrument, buffer);
+
+      if (buffer.length > executionDelay) {
+        // Strategy sees the delayed tick
+        strategyTick = buffer[buffer.length - 1 - executionDelay];
+      } else {
+        // Not enough history yet — strategy sees current (no delay applied)
+        strategyTick = tick;
+      }
+
+      // Keep buffer bounded
+      if (buffer.length > executionDelay + 10) {
+        buffer.splice(0, buffer.length - executionDelay - 5);
+      }
+    }
+
+    await strategy.onTick(ctx, strategyTick);
 
     // Sample equity curve once per unique timestamp
     if (tick.timestamp !== lastEquityTime) {

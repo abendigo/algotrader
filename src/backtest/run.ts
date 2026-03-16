@@ -82,16 +82,17 @@ function buildStrategy(name: string): Strategy {
         spreads: SPREADS,
       });
     case "session-divergence":
+      // Config values are in minutes (time-based, not candle-based)
       return new SessionDivergenceStrategy({
-        minDeviationPct: 0.03,
+        minDeviationPct: 0.015,
         reversionTarget: 0.7,
-        minHold: scale(30),              // 30 minutes minimum hold
-        maxHold: scale(240),             // 4 hours max hold
+        minHold: 30,                     // 30 minutes minimum hold
+        maxHold: 240,                    // 4 hours max hold
         takeProfitMultiple: 20,
         stopLossMultiple: 10,
         units: 10_000,
         spreads: SPREADS,
-        cooldownPeriod: scale(480),      // 8 hour cooldown per instrument
+        cooldownPeriod: 480,             // 8 hour cooldown per instrument
       });
     default:
       console.error(`Unknown strategy: ${name}. Available: lead-lag, cross-drift, currency-momentum, session-divergence`);
@@ -99,18 +100,33 @@ function buildStrategy(name: string): Strategy {
   }
 }
 
+// Optional stress test flags: --spread-mult=2.0 --exec-delay=1
+const spreadMultiplier = parseFloat(
+  process.argv.find((a) => a.startsWith("--spread-mult="))?.split("=")[1] ?? "1.0",
+);
+const executionDelay = parseInt(
+  process.argv.find((a) => a.startsWith("--exec-delay="))?.split("=")[1] ?? "0",
+  10,
+);
+
 const strategy = buildStrategy(strategyName);
 
 const config: BacktestConfig = {
   granularity,
   initialBalance: 100_000,
   spread: SPREADS,
+  spreadMultiplier,
+  executionDelay,
 };
 
 const REPORTS_DIR = join(import.meta.dirname, "../../reports");
 
 async function main() {
-  console.log(`Running ${strategyName} backtest on ${granularity} data (scale factor: ${scale(1)}x)...`);
+  const flags = [];
+  if (spreadMultiplier !== 1.0) flags.push(`spread×${spreadMultiplier}`);
+  if (executionDelay > 0) flags.push(`delay=${executionDelay} ticks`);
+  const flagStr = flags.length > 0 ? ` [${flags.join(", ")}]` : "";
+  console.log(`Running ${strategyName} backtest on ${granularity} data (scale factor: ${scale(1)}x)${flagStr}...`);
   const result = await runBacktest(strategy, config);
   printResults(result);
 
