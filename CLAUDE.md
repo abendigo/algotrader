@@ -24,8 +24,10 @@
 
 ## Workflow
 - Always check for uncommitted changes (`git status`) before starting any new work
-- Commit at appropriate milestones — don't let changes pile up
+- **Commit after every logical unit of work** (new feature, refactor, bugfix) — do NOT batch multiple features into one commit session
+- If a task produces changes across multiple concerns, split into separate commits
 - Never leave the repo in a dirty state between tasks
+- When in doubt, commit more often rather than less
 
 ## Commands
 - `npm run build` — compile TypeScript to dist/
@@ -33,3 +35,6 @@
 - `npm run dev` — run src/index.ts with tsx
 - `npm run collect [granularity] [days]` — pull historical candles from OANDA (e.g., `npm run collect M1 7`)
 - `npm run analyze [granularity]` — run lead-lag analysis on collected data (e.g., `npm run analyze M1`)
+- `npm run backtest [strategy] [granularity]` — run backtest (e.g., `npm run backtest lead-lag M1`)
+  - Strategies: `lead-lag`, `cross-drift`, `currency-momentum`
+  - Generates HTML and CSV reports in `reports/`
