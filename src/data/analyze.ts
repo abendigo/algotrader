@@ -11,21 +11,10 @@
  * Example: npx tsx src/data/analyze.ts M1
  */
 
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
 import type { Candle } from "../core/types.js";
 import { CROSSES, parsePair, findTriangle } from "./instruments.js";
 import type { Currency } from "./instruments.js";
-
-const DATA_DIR = join(import.meta.dirname, "../../data");
-
-function loadCandles(granularity: string, instrument: string): Candle[] {
-  const file = join(DATA_DIR, granularity, `${instrument}.json`);
-  if (!existsSync(file)) {
-    throw new Error(`No data for ${instrument} at ${granularity}. Run collect.ts first.`);
-  }
-  return JSON.parse(readFileSync(file, "utf-8"));
-}
+import { loadCandles } from "./loader.js";
 
 /**
  * Convert a pair's close price to "units of currency per 1 USD".

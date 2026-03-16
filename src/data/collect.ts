@@ -1,9 +1,11 @@
 /**
  * Collects historical candle data from OANDA for all tracked instruments.
- * Saves to JSON files in data/ directory for offline analysis.
+ * Saves one JSON file per instrument per day in data/{granularity}/{instrument}/.
  *
  * Usage: npx tsx src/data/collect.ts [granularity] [days]
- * Example: npx tsx src/data/collect.ts M1 7
+ * Example: npx tsx src/data/collect.ts M1 30
+ *
+ * Incrementally collects: skips days that already have data on disk.
  */
 
 import { OandaClient } from "../brokers/oanda/client.js";
@@ -35,42 +37,57 @@ const GRANULARITY_MS: Record<string, number> = {
   D: 86_400_000,
 };
 
-async function collectInstrument(
+/** Format a Date as YYYY-MM-DD in UTC */
+function formatDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/** Get start of UTC day */
+function startOfDay(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+/** Generate all UTC dates from start (inclusive) to end (exclusive) */
+function dateRange(from: Date, to: Date): Date[] {
+  const dates: Date[] = [];
+  let cursor = startOfDay(from);
+  const endDay = startOfDay(to);
+  while (cursor < endDay) {
+    dates.push(new Date(cursor));
+    cursor = new Date(cursor.getTime() + 86_400_000);
+  }
+  return dates;
+}
+
+async function collectDay(
   client: OandaClient,
   instrument: string,
   granularity: Granularity,
-  from: Date,
-  to: Date,
+  day: Date,
 ): Promise<Candle[]> {
+  const stepMs = GRANULARITY_MS[granularity];
+  if (!stepMs) throw new Error(`Unknown granularity: ${granularity}`);
+
+  const dayStart = startOfDay(day);
+  const dayEnd = new Date(dayStart.getTime() + 86_400_000);
+
   const allCandles: Candle[] = [];
-  let cursor = from;
+  let cursor = dayStart;
 
-  while (cursor < to) {
-    const stepMs = GRANULARITY_MS[granularity];
-    if (!stepMs) throw new Error(`Unknown granularity: ${granularity}`);
-
+  while (cursor < dayEnd) {
     const chunkEnd = new Date(
-      Math.min(cursor.getTime() + stepMs * MAX_CANDLES_PER_REQUEST, to.getTime()),
+      Math.min(cursor.getTime() + stepMs * MAX_CANDLES_PER_REQUEST, dayEnd.getTime()),
     );
 
-    const candles = await client.getCandlesByRange(
-      instrument,
-      granularity,
-      cursor,
-      chunkEnd,
-    );
-
+    const candles = await client.getCandlesByRange(instrument, granularity, cursor, chunkEnd);
     allCandles.push(...candles);
 
     if (candles.length === 0) {
-      // No data in this range, skip forward
       cursor = chunkEnd;
     } else {
-      // Move cursor past the last candle
       cursor = new Date(candles[candles.length - 1].timestamp + stepMs);
     }
 
-    // Rate limit: be polite to the API
     await sleep(100);
   }
 
@@ -90,37 +107,58 @@ async function main() {
 
   const to = new Date();
   const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
-
-  const outDir = join(DATA_DIR, granularity);
-  if (!existsSync(outDir)) {
-    mkdirSync(outDir, { recursive: true });
-  }
+  const dates = dateRange(from, to);
 
   console.log(
-    `Collecting ${granularity} candles for ${ALL_INSTRUMENTS.length} instruments, ${days} days (${from.toISOString()} to ${to.toISOString()})`,
+    `Collecting ${granularity} candles for ${ALL_INSTRUMENTS.length} instruments, ` +
+      `${dates.length} days (${formatDate(dates[0])} to ${formatDate(dates[dates.length - 1])})`,
   );
 
-  for (const instrument of ALL_INSTRUMENTS) {
-    const outFile = join(outDir, `${instrument}.json`);
+  let fetched = 0;
+  let skipped = 0;
 
-    if (existsSync(outFile)) {
-      console.log(`  ${instrument}: already exists, skipping`);
+  for (const instrument of ALL_INSTRUMENTS) {
+    const instDir = join(DATA_DIR, granularity, instrument);
+    if (!existsSync(instDir)) {
+      mkdirSync(instDir, { recursive: true });
+    }
+
+    const missing: Date[] = [];
+    for (const day of dates) {
+      const file = join(instDir, `${formatDate(day)}.json`);
+      if (!existsSync(file)) {
+        missing.push(day);
+      } else {
+        skipped++;
+      }
+    }
+
+    if (missing.length === 0) {
+      console.log(`  ${instrument}: all ${dates.length} days cached`);
       continue;
     }
 
-    try {
-      const candles = await collectInstrument(client, instrument, granularity, from, to);
-      writeFileSync(outFile, JSON.stringify(candles));
-      console.log(`  ${instrument}: ${candles.length} candles`);
-    } catch (err) {
-      console.error(`  ${instrument}: FAILED -`, err instanceof Error ? err.message : err);
+    let totalCandles = 0;
+    for (const day of missing) {
+      try {
+        const candles = await collectDay(client, instrument, granularity, day);
+        const file = join(instDir, `${formatDate(day)}.json`);
+        writeFileSync(file, JSON.stringify(candles));
+        totalCandles += candles.length;
+        fetched++;
+      } catch (err) {
+        console.error(
+          `  ${instrument} ${formatDate(day)}: FAILED -`,
+          err instanceof Error ? err.message : err,
+        );
+      }
     }
 
-    // Rate limit between instruments
+    console.log(`  ${instrument}: ${missing.length} days fetched (${totalCandles} candles)`);
     await sleep(200);
   }
 
-  console.log("Done.");
+  console.log(`\nDone. Fetched ${fetched} day-files, skipped ${skipped} already cached.`);
 }
 
 main().catch(console.error);
