@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit",
     "dev": "tsx src/index.ts",
     "collect": "tsx src/data/collect.ts",
-    "analyze": "tsx src/data/analyze.ts"
+    "analyze": "tsx src/data/analyze.ts",
+    "backtest": "tsx src/backtest/run.ts"
   },
   "keywords": [],
   "author": "",
