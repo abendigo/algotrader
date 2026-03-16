@@ -74,16 +74,53 @@ const DEFAULT_CONFIG: SessionDivergenceConfig = {
 
 interface Session {
   name: string;
-  scanStartHour: number; // UTC hour
-  scanEndHour: number;   // UTC hour (+ minutes via scanEndMin)
-  scanEndMin: number;
-  sessionEndHour: number;
+  /** Local open hour (in the session's timezone) */
+  localOpenHour: number;
+  localOpenMin: number;
+  /** How many minutes the scan window stays open */
+  scanWindowMin: number;
+  /** Local hour to force-close any open position */
+  localCloseHour: number;
+  /** IANA timezone for DST-aware conversion */
+  timezone: string;
 }
 
 const SESSIONS: Session[] = [
-  { name: "London", scanStartHour: 8, scanEndHour: 8, scanEndMin: 15, sessionEndHour: 12 },
-  { name: "New York", scanStartHour: 13, scanEndHour: 13, scanEndMin: 15, sessionEndHour: 17 },
+  {
+    name: "London",
+    localOpenHour: 8,
+    localOpenMin: 0,
+    scanWindowMin: 15,
+    localCloseHour: 12,
+    timezone: "Europe/London",
+  },
+  {
+    name: "New York",
+    localOpenHour: 9,
+    localOpenMin: 30,
+    scanWindowMin: 15,
+    localCloseHour: 13,
+    timezone: "America/New_York",
+  },
 ];
+
+/**
+ * Get the current local hour and minute for a timezone, handling DST.
+ */
+function getLocalTime(timestamp: number, timezone: string): { hour: number; min: number } {
+  const date = new Date(timestamp);
+  // Use Intl to get DST-aware local time
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  }).formatToParts(date);
+
+  const hour = parseInt(parts.find((p) => p.type === "hour")!.value, 10);
+  const min = parseInt(parts.find((p) => p.type === "minute")!.value, 10);
+  return { hour, min };
+}
 
 interface CrossInfo {
   cross: string;
@@ -103,7 +140,8 @@ interface OpenPosition {
   takeProfit: number;
   stopLoss: number;
   session: string;
-  sessionEndHour: number;
+  sessionCloseHour: number;
+  sessionTimezone: string;
 }
 
 function toUsdRate(instrument: string, price: number): number {
@@ -120,8 +158,9 @@ export class SessionDivergenceStrategy implements Strategy {
   private position: OpenPosition | null = null;
   private lastScanSession: string = "";
   private lastScanDate: string = "";
-  private cooldowns = new Map<string, number>(); // instrument → tick count when cooldown expires
+  private cooldowns = new Map<string, number>(); // instrument → timestamp when cooldown expires
   private tickCount = 0;
+  private currentTimestamp = 0;
 
   constructor(config?: Partial<SessionDivergenceConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -148,10 +187,9 @@ export class SessionDivergenceStrategy implements Strategy {
   async onTick(ctx: StrategyContext, tick: Tick): Promise<void> {
     this.prices.set(tick.instrument, (tick.bid + tick.ask) / 2);
     this.tickCount++;
+    this.currentTimestamp = tick.timestamp;
 
     const date = new Date(tick.timestamp);
-    const hour = date.getUTCHours();
-    const min = date.getUTCMinutes();
     const dateStr = date.toISOString().slice(0, 10);
     const dayOfWeek = date.getUTCDay();
 
@@ -165,11 +203,14 @@ export class SessionDivergenceStrategy implements Strategy {
       return;
     }
 
-    // Check if we're in a session scan window
+    // Check if we're in a session scan window (DST-aware)
     for (const session of SESSIONS) {
+      const local = getLocalTime(tick.timestamp, session.timezone);
+      const openMinOfDay = session.localOpenHour * 60 + session.localOpenMin;
+      const currentMinOfDay = local.hour * 60 + local.min;
       const inScanWindow =
-        (hour === session.scanStartHour && min >= 0) &&
-        (hour < session.scanEndHour || (hour === session.scanEndHour && min <= session.scanEndMin));
+        currentMinOfDay >= openMinOfDay &&
+        currentMinOfDay < openMinOfDay + session.scanWindowMin;
 
       if (!inScanWindow) continue;
 
@@ -220,7 +261,7 @@ export class SessionDivergenceStrategy implements Strategy {
 
       // Skip if on cooldown
       const cooldownExpiry = this.cooldowns.get(info.cross) ?? 0;
-      if (this.tickCount < cooldownExpiry) continue;
+      if (this.currentTimestamp < cooldownExpiry) continue;
 
       if (Math.abs(deviation) >= this.config.minDeviationPct) {
         // Score by deviation relative to spread cost — prefer high deviation, low spread
@@ -286,7 +327,8 @@ export class SessionDivergenceStrategy implements Strategy {
       takeProfit,
       stopLoss,
       session: session.name,
-      sessionEndHour: session.sessionEndHour,
+      sessionCloseHour: session.localCloseHour,
+      sessionTimezone: session.timezone,
     };
   }
 
@@ -295,8 +337,7 @@ export class SessionDivergenceStrategy implements Strategy {
     const currentPrice = this.prices.get(pos.instrument);
     if (!currentPrice) return;
 
-    const date = new Date(tick.timestamp);
-    const hour = date.getUTCHours();
+    const local = getLocalTime(tick.timestamp, pos.sessionTimezone);
 
     // PnL check
     const pnl =
@@ -322,14 +363,18 @@ export class SessionDivergenceStrategy implements Strategy {
       }
     }
 
+    const elapsed = tick.timestamp - pos.entryTimestamp;
+    const minHoldMs = (this.config.minHold ?? 0) * 60_000; // config is in M1 candles = minutes
+    const maxHoldMs = this.config.maxHold * 60_000;
+
     // Hard exits always apply (stop loss, max hold, session end)
     const hardExit =
       pnl <= -pos.stopLoss ||
-      pos.ticksSinceEntry >= this.config.maxHold ||
-      hour >= pos.sessionEndHour;
+      elapsed >= maxHoldMs ||
+      local.hour >= pos.sessionCloseHour;
 
     // Soft exits only after minimum hold period
-    const pastMinHold = pos.ticksSinceEntry >= (this.config.minHold ?? 0);
+    const pastMinHold = elapsed >= minHoldMs;
 
     const reversionAchieved =
       Math.abs(pos.entryDeviation) > 0 &&
@@ -359,7 +404,8 @@ export class SessionDivergenceStrategy implements Strategy {
     }
 
     await ctx.broker.closePosition(pos.instrument);
-    this.cooldowns.set(pos.instrument, this.tickCount + this.config.cooldownPeriod);
+    const cooldownMs = this.config.cooldownPeriod * 60_000; // config in M1 candles = minutes
+    this.cooldowns.set(pos.instrument, this.currentTimestamp + cooldownMs);
     this.position = null;
   }
 
