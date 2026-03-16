@@ -1,0 +1,78 @@
+import type { BacktestResult } from "./types.js";
+
+/** Generate a CSV string from backtest results */
+export function exportCSV(result: BacktestResult): string {
+  const headers = [
+    "Trade #",
+    "Instrument",
+    "Side",
+    "Units",
+    "Entry Time",
+    "Exit Time",
+    "Duration (min)",
+    "Entry Price",
+    "Exit Price",
+    "PnL ($)",
+    "Entry Z-Score",
+    "Exit Z-Score",
+    "Entry Deviation %",
+    "Exit Deviation %",
+    "Implied Rate (entry)",
+    "Actual Rate (entry)",
+    "Leg A",
+    "Leg A Price (entry)",
+    "Leg B",
+    "Leg B Price (entry)",
+    "Entry Reason",
+    "Exit Reason",
+  ];
+
+  const rows = result.trades.map((t, i) => {
+    const durationMin = ((t.exitTime - t.entryTime) / 60000).toFixed(1);
+    const es = t.entrySignal;
+    const xs = t.exitSignal;
+
+    const entryReason = es
+      ? `Z=${es.zScore.toFixed(2)}, actual ${es.actualRate.toFixed(5)} vs implied ${es.impliedRate.toFixed(5)} (dev ${es.deviation.toFixed(4)}%)`
+      : "";
+    const exitReason = xs
+      ? `Z reverted to ${xs.zScore.toFixed(2)} (dev ${xs.deviation.toFixed(4)}%)`
+      : "";
+
+    return [
+      i + 1,
+      t.instrument,
+      t.side,
+      t.units,
+      new Date(t.entryTime).toISOString(),
+      new Date(t.exitTime).toISOString(),
+      durationMin,
+      t.entryPrice.toFixed(5),
+      t.exitPrice.toFixed(5),
+      t.pnl.toFixed(2),
+      es?.zScore.toFixed(3) ?? "",
+      xs?.zScore.toFixed(3) ?? "",
+      es?.deviation.toFixed(4) ?? "",
+      xs?.deviation.toFixed(4) ?? "",
+      es?.impliedRate.toFixed(5) ?? "",
+      es?.actualRate.toFixed(5) ?? "",
+      es?.legA ?? "",
+      es?.legAPrice.toFixed(5) ?? "",
+      es?.legB ?? "",
+      es?.legBPrice.toFixed(5) ?? "",
+      entryReason,
+      exitReason,
+    ];
+  });
+
+  const csvEscape = (v: string | number) => {
+    const s = String(v);
+    return s.includes(",") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const lines = [headers.map(csvEscape).join(",")];
+  for (const row of rows) {
+    lines.push(row.map(csvEscape).join(","));
+  }
+  return lines.join("\n");
+}
