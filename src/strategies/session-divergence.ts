@@ -57,8 +57,10 @@ export interface SessionDivergenceConfig {
   spreads?: Record<string, number>;
   /** Which crosses to consider (default: all 21) */
   crosses?: readonly string[];
-  /** Don't trade the same cross again for this many candles (default: 480 = 8 hours on M1) */
+  /** Don't trade the same cross again for this many minutes (default: 480 = 8 hours) */
   cooldownPeriod: number;
+  /** Minutes after session open to wait before scanning (default: 0). Lets spreads settle. */
+  entryDelay: number;
 }
 
 const DEFAULT_CONFIG: SessionDivergenceConfig = {
@@ -70,6 +72,7 @@ const DEFAULT_CONFIG: SessionDivergenceConfig = {
   stopLossMultiple: 10,
   units: 10_000,
   cooldownPeriod: 480,
+  entryDelay: 0,
 };
 
 interface Session {
@@ -206,7 +209,7 @@ export class SessionDivergenceStrategy implements Strategy {
     // Check if we're in a session scan window (DST-aware)
     for (const session of SESSIONS) {
       const local = getLocalTime(tick.timestamp, session.timezone);
-      const openMinOfDay = session.localOpenHour * 60 + session.localOpenMin;
+      const openMinOfDay = session.localOpenHour * 60 + session.localOpenMin + this.config.entryDelay;
       const currentMinOfDay = local.hour * 60 + local.min;
       const inScanWindow =
         currentMinOfDay >= openMinOfDay &&

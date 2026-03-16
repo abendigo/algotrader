@@ -93,6 +93,7 @@ function buildStrategy(name: string): Strategy {
         units: 10_000,
         spreads: SPREADS,
         cooldownPeriod: 480,             // 8 hour cooldown per instrument
+        entryDelay,                      // minutes after session open to wait (0 = immediate)
       });
     default:
       console.error(`Unknown strategy: ${name}. Available: lead-lag, cross-drift, currency-momentum, session-divergence`);
@@ -100,12 +101,16 @@ function buildStrategy(name: string): Strategy {
   }
 }
 
-// Optional stress test flags: --spread-mult=2.0 --exec-delay=1
+// Optional flags: --spread-mult=2.0 --exec-delay=1 --entry-delay=5
 const spreadMultiplier = parseFloat(
   process.argv.find((a) => a.startsWith("--spread-mult="))?.split("=")[1] ?? "1.0",
 );
 const executionDelay = parseInt(
   process.argv.find((a) => a.startsWith("--exec-delay="))?.split("=")[1] ?? "0",
+  10,
+);
+const entryDelay = parseInt(
+  process.argv.find((a) => a.startsWith("--entry-delay="))?.split("=")[1] ?? "0",
   10,
 );
 
@@ -125,6 +130,7 @@ async function main() {
   const flags = [];
   if (spreadMultiplier !== 1.0) flags.push(`spread×${spreadMultiplier}`);
   if (executionDelay > 0) flags.push(`delay=${executionDelay} ticks`);
+  if (entryDelay > 0) flags.push(`entry-delay=${entryDelay}min`);
   const flagStr = flags.length > 0 ? ` [${flags.join(", ")}]` : "";
   console.log(`Running ${strategyName} backtest on ${granularity} data (scale factor: ${scale(1)}x)${flagStr}...`);
   const result = await runBacktest(strategy, config);
