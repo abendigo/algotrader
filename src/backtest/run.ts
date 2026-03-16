@@ -16,6 +16,7 @@ import type { Strategy } from "../core/strategy.js";
 import { LeadLagStrategy } from "../strategies/lead-lag.js";
 import { CrossDriftStrategy } from "../strategies/cross-drift.js";
 import { CurrencyMomentumStrategy } from "../strategies/currency-momentum.js";
+import { SessionDivergenceStrategy } from "../strategies/session-divergence.js";
 import { runBacktest, printResults } from "./engine.js";
 import { exportHTML } from "./export-html.js";
 import { exportCSV } from "./export-csv.js";
@@ -56,8 +57,18 @@ function buildStrategy(name: string): Strategy {
         units: 10_000,
         spreads: SPREADS,
       });
+    case "session-divergence":
+      return new SessionDivergenceStrategy({
+        minDeviationPct: 0.01,
+        reversionTarget: 0.5,
+        maxHold: 240,
+        takeProfitMultiple: 15,
+        stopLossMultiple: 8,
+        units: 10_000,
+        spreads: SPREADS,
+      });
     default:
-      console.error(`Unknown strategy: ${name}. Available: lead-lag, cross-drift, currency-momentum`);
+      console.error(`Unknown strategy: ${name}. Available: lead-lag, cross-drift, currency-momentum, session-divergence`);
       process.exit(1);
   }
 }
