@@ -39,15 +39,17 @@ import {
 } from "../data/instruments.js";
 
 export interface SessionDivergenceConfig {
-  /** Minimum deviation % to consider a trade (default: 0.01) */
+  /** Minimum deviation % to consider a trade (default: 0.03) */
   minDeviationPct: number;
-  /** Exit when deviation reverts this fraction of entry deviation (default: 0.5 = 50%) */
+  /** Exit when deviation reverts this fraction of entry deviation (default: 0.7 = 70%) */
   reversionTarget: number;
+  /** Minimum candles to hold before allowing exit (default: 30 = 30 min on M1) */
+  minHold: number;
   /** Max candles to hold (default: 240 = 4 hours on M1) */
   maxHold: number;
-  /** Take profit in price units as multiple of spread (default: 15) */
+  /** Take profit in price units as multiple of spread (default: 20) */
   takeProfitMultiple: number;
-  /** Stop loss in price units as multiple of spread (default: 8) */
+  /** Stop loss in price units as multiple of spread (default: 10) */
   stopLossMultiple: number;
   /** Units per trade (default: 10000) */
   units: number;
@@ -55,15 +57,19 @@ export interface SessionDivergenceConfig {
   spreads?: Record<string, number>;
   /** Which crosses to consider (default: all 21) */
   crosses?: readonly string[];
+  /** Don't trade the same cross again for this many candles (default: 480 = 8 hours on M1) */
+  cooldownPeriod: number;
 }
 
 const DEFAULT_CONFIG: SessionDivergenceConfig = {
-  minDeviationPct: 0.01,
-  reversionTarget: 0.5,
+  minDeviationPct: 0.03,
+  reversionTarget: 0.7,
+  minHold: 30,
   maxHold: 240,
-  takeProfitMultiple: 15,
-  stopLossMultiple: 8,
+  takeProfitMultiple: 20,
+  stopLossMultiple: 10,
   units: 10_000,
+  cooldownPeriod: 480,
 };
 
 interface Session {
@@ -114,6 +120,8 @@ export class SessionDivergenceStrategy implements Strategy {
   private position: OpenPosition | null = null;
   private lastScanSession: string = "";
   private lastScanDate: string = "";
+  private cooldowns = new Map<string, number>(); // instrument → tick count when cooldown expires
+  private tickCount = 0;
 
   constructor(config?: Partial<SessionDivergenceConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -139,6 +147,7 @@ export class SessionDivergenceStrategy implements Strategy {
 
   async onTick(ctx: StrategyContext, tick: Tick): Promise<void> {
     this.prices.set(tick.instrument, (tick.bid + tick.ask) / 2);
+    this.tickCount++;
 
     const date = new Date(tick.timestamp);
     const hour = date.getUTCHours();
@@ -195,6 +204,7 @@ export class SessionDivergenceStrategy implements Strategy {
       actual: number;
       legAPrice: number;
       legBPrice: number;
+      score: number;
     }[] = [];
 
     for (const info of this.crossInfos) {
@@ -208,7 +218,16 @@ export class SessionDivergenceStrategy implements Strategy {
       const implied = rateQuote / rateBase;
       const deviation = ((crossPrice - implied) / implied) * 100;
 
+      // Skip if on cooldown
+      const cooldownExpiry = this.cooldowns.get(info.cross) ?? 0;
+      if (this.tickCount < cooldownExpiry) continue;
+
       if (Math.abs(deviation) >= this.config.minDeviationPct) {
+        // Score by deviation relative to spread cost — prefer high deviation, low spread
+        const spreadCost = this.config.spreads?.[info.cross] ?? 0.0002;
+        const spreadPct = (spreadCost / crossPrice) * 100;
+        const score = Math.abs(deviation) / spreadPct; // deviation-to-spread ratio
+
         candidates.push({
           info,
           deviation,
@@ -216,14 +235,15 @@ export class SessionDivergenceStrategy implements Strategy {
           actual: crossPrice,
           legAPrice,
           legBPrice,
+          score,
         });
       }
     }
 
     if (candidates.length === 0) return;
 
-    // Pick the most mispriced cross
-    candidates.sort((a, b) => Math.abs(b.deviation) - Math.abs(a.deviation));
+    // Pick the best risk/reward: highest deviation-to-spread ratio
+    candidates.sort((a, b) => b.score - a.score);
     const best = candidates[0];
 
     // Positive deviation: actual > implied → sell (expect reversion down)
@@ -302,18 +322,24 @@ export class SessionDivergenceStrategy implements Strategy {
       }
     }
 
-    // Reversion: deviation has moved back toward zero by reversionTarget
+    // Hard exits always apply (stop loss, max hold, session end)
+    const hardExit =
+      pnl <= -pos.stopLoss ||
+      pos.ticksSinceEntry >= this.config.maxHold ||
+      hour >= pos.sessionEndHour;
+
+    // Soft exits only after minimum hold period
+    const pastMinHold = pos.ticksSinceEntry >= (this.config.minHold ?? 0);
+
     const reversionAchieved =
       Math.abs(pos.entryDeviation) > 0 &&
       Math.abs(currentDeviation) <=
         Math.abs(pos.entryDeviation) * (1 - this.config.reversionTarget);
 
     const shouldExit =
-      pnl >= pos.takeProfit ||
-      pnl <= -pos.stopLoss ||
-      pos.ticksSinceEntry >= this.config.maxHold ||
-      hour >= pos.sessionEndHour ||
-      reversionAchieved;
+      hardExit ||
+      (pastMinHold && pnl >= pos.takeProfit) ||
+      (pastMinHold && reversionAchieved);
 
     if (!shouldExit) return;
 
@@ -333,6 +359,7 @@ export class SessionDivergenceStrategy implements Strategy {
     }
 
     await ctx.broker.closePosition(pos.instrument);
+    this.cooldowns.set(pos.instrument, this.tickCount + this.config.cooldownPeriod);
     this.position = null;
   }
 
@@ -340,5 +367,6 @@ export class SessionDivergenceStrategy implements Strategy {
     this.crossInfos = [];
     this.prices.clear();
     this.position = null;
+    this.cooldowns.clear();
   }
 }

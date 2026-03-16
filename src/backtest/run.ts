@@ -83,13 +83,15 @@ function buildStrategy(name: string): Strategy {
       });
     case "session-divergence":
       return new SessionDivergenceStrategy({
-        minDeviationPct: 0.01,
-        reversionTarget: 0.5,
-        maxHold: scale(240),             // 4 hours
-        takeProfitMultiple: 15,
-        stopLossMultiple: 8,
+        minDeviationPct: 0.03,
+        reversionTarget: 0.7,
+        minHold: scale(30),              // 30 minutes minimum hold
+        maxHold: scale(240),             // 4 hours max hold
+        takeProfitMultiple: 20,
+        stopLossMultiple: 10,
         units: 10_000,
         spreads: SPREADS,
+        cooldownPeriod: scale(480),      // 8 hour cooldown per instrument
       });
     default:
       console.error(`Unknown strategy: ${name}. Available: lead-lag, cross-drift, currency-momentum, session-divergence`);
