@@ -28,4 +28,6 @@
 - Never leave the repo in a dirty state between tasks
 
 ## Commands
-(TODO: fill in as build/test/lint scripts are added)
+- `npm run build` — compile TypeScript to dist/
+- `npm run typecheck` — type check without emitting
+- `npm run dev` — run src/index.ts with tsx
