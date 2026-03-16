@@ -31,3 +31,5 @@
 - `npm run build` — compile TypeScript to dist/
 - `npm run typecheck` — type check without emitting
 - `npm run dev` — run src/index.ts with tsx
+- `npm run collect [granularity] [days]` — pull historical candles from OANDA (e.g., `npm run collect M1 7`)
+- `npm run analyze [granularity]` — run lead-lag analysis on collected data (e.g., `npm run analyze M1`)
