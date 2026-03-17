@@ -168,6 +168,11 @@ const entryDelay = parseInt(
   10,
 );
 const timeVaryingSpread = process.argv.includes("--time-varying-spread");
+const slippagePips = parseFloat(
+  process.argv.find((a) => a.startsWith("--slippage="))?.split("=")[1] ?? "0",
+);
+const fromDate = process.argv.find((a) => a.startsWith("--from="))?.split("=")[1];
+const toDate = process.argv.find((a) => a.startsWith("--to="))?.split("=")[1];
 const rewardRatio = parseFloat(
   process.argv.find((a) => a.startsWith("--reward="))?.split("=")[1] ?? "0",
 );
@@ -182,6 +187,9 @@ const config: BacktestConfig = {
   spreadMultiplier,
   executionDelay,
   timeVaryingSpread,
+  slippagePips,
+  fromDate,
+  toDate,
 };
 
 const REPORTS_DIR = join(import.meta.dirname, "../../reports");
@@ -192,6 +200,9 @@ async function main() {
   if (executionDelay > 0) flags.push(`delay=${executionDelay} ticks`);
   if (entryDelay > 0) flags.push(`entry-delay=${entryDelay}min`);
   if (timeVaryingSpread) flags.push("time-varying-spread");
+  if (slippagePips > 0) flags.push(`slippage=${slippagePips}pips`);
+  if (fromDate) flags.push(`from=${fromDate}`);
+  if (toDate) flags.push(`to=${toDate}`);
   const flagStr = flags.length > 0 ? ` [${flags.join(", ")}]` : "";
   console.log(`Running ${strategyName} backtest on ${granularity} data (scale factor: ${scale(1)}x)${flagStr}...`);
   const result = await runBacktest(strategy, config);

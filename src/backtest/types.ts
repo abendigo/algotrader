@@ -20,6 +20,8 @@ export interface BacktestConfig {
   executionDelay?: number;
   /** Use time-varying spread model (wider at session open, tighter during overlap) */
   timeVaryingSpread?: boolean;
+  /** Random slippage in pips added to each fill (default: 0). Simulates execution quality. */
+  slippagePips?: number;
 }
 
 /** Signal snapshot captured at entry or exit */

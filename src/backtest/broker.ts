@@ -37,6 +37,7 @@ export class BacktestBroker implements Broker {
   private spread: number | Record<string, number>;
   private spreadMultiplier: number;
   private useTimeVaryingSpread: boolean;
+  private slippagePips: number;
   private pendingEntrySignal?: SignalSnapshot;
   private pendingExitSignal?: SignalSnapshot;
 
@@ -45,11 +46,20 @@ export class BacktestBroker implements Broker {
     spread: number | Record<string, number>,
     spreadMultiplier: number = 1.0,
     useTimeVaryingSpread: boolean = false,
+    slippagePips: number = 0,
   ) {
     this.balance = initialBalance;
     this.spread = spread;
     this.spreadMultiplier = spreadMultiplier;
     this.useTimeVaryingSpread = useTimeVaryingSpread;
+    this.slippagePips = slippagePips;
+  }
+
+  /** Apply random slippage against the trader (always adverse) */
+  private applySlippage(price: number, side: "buy" | "sell"): number {
+    if (this.slippagePips === 0) return price;
+    const slip = Math.random() * this.slippagePips;
+    return side === "buy" ? price + slip : price - slip;
   }
 
   private getSpread(instrument: Instrument): number {
@@ -139,10 +149,11 @@ export class BacktestBroker implements Broker {
     // Apply spread: buy at ask (mid + half spread), sell at bid (mid - half spread)
     const mid = (tick.bid + tick.ask) / 2;
     const halfSpread = this.getSpread(order.instrument) / 2;
-    const fillPrice =
+    const rawFill =
       order.side === "buy"
         ? mid + halfSpread
         : mid - halfSpread;
+    const fillPrice = this.applySlippage(rawFill, order.side);
 
     const existing = this.positions.get(order.instrument);
 
@@ -208,14 +219,16 @@ export class BacktestBroker implements Broker {
     const mid = (tick.bid + tick.ask) / 2;
     // Close a buy at bid, close a sell at ask
     const halfSpread = this.getSpread(instrument) / 2;
-    const fillPrice =
+    // Close: buy → sell at bid, sell → buy at ask. Slippage is adverse to the closer.
+    const closeSide = pos.side === "buy" ? "sell" : "buy";
+    const rawFill =
       pos.side === "buy"
         ? mid - halfSpread
         : mid + halfSpread;
+    const fillPrice = this.applySlippage(rawFill, closeSide);
 
     this.closePositionInternal(pos, fillPrice, tick.timestamp);
 
-    const closeSide = pos.side === "buy" ? "sell" : "buy";
     return {
       id: String(++this.orderCounter),
       instrument,
