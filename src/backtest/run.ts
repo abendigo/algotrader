@@ -107,9 +107,9 @@ function buildStrategy(name: string): Strategy {
         rewardRatio: rewardRatio || 0,
         maxRangePct: 0.005,
         minRangePct: 0.0005,
-        units: 10_000,
-        riskPerTrade: 0.03,            // 3% of equity per trade
-        stopRangeFraction: 0.5,         // stop at half the Asian range (tighter)
+        units: 100,
+        riskPerTrade: 0,               // fixed sizing
+        stopRangeFraction: 1.0,         // stop at opposite side of Asian range
         instruments: pairsFlag
           ? pairsFlag.split(",")
           : ["EUR_USD", "GBP_USD", "USD_CAD", "USD_CHF", "AUD_USD", "NZD_USD"],
