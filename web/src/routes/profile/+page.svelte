@@ -19,6 +19,14 @@
 	let showAddAccount = $state(false);
 	let testAccountId = $state("");
 	let testResult = $state("");
+	let selectedBroker = $state("oanda");
+
+	const brokers = [
+		{ id: "oanda", name: "OANDA", status: "active", description: "Forex — REST v20 API + streaming" },
+		{ id: "tradovate", name: "Tradovate", status: "coming-soon", description: "Futures — modern REST + WebSocket API" },
+		{ id: "binance", name: "Binance", status: "coming-soon", description: "Crypto — testnet for paper trading" },
+		{ id: "hyperliquid", name: "Hyperliquid", status: "coming-soon", description: "On-chain perps — stretch goal" },
+	];
 
 	// Filter out accounts already linked
 	const linkedIds = $derived(new Set(data.user?.accounts?.map((a: any) => a.accountId) ?? []));
@@ -49,6 +57,35 @@
 		</div>
 	</section>
 
+	<section>
+		<h2>Brokers</h2>
+		<div class="broker-tabs">
+			{#each brokers as broker}
+				<button
+					class="broker-tab"
+					class:active={selectedBroker === broker.id}
+					onclick={() => selectedBroker = broker.id}
+				>
+					{broker.name}
+					{#if broker.status === "coming-soon"}
+						<span class="coming-soon-dot"></span>
+					{/if}
+				</button>
+			{/each}
+		</div>
+
+		{#if selectedBroker !== "oanda"}
+			{@const broker = brokers.find(b => b.id === selectedBroker)}
+			<div class="coming-soon-panel">
+				<h3>{broker?.name}</h3>
+				<p class="description">{broker?.description}</p>
+				<p class="coming-soon-text">Not yet implemented</p>
+				<p class="hint">Support for {broker?.name} is on the roadmap. Check back soon.</p>
+			</div>
+		{/if}
+	</section>
+
+	{#if selectedBroker === "oanda"}
 	<section>
 		<h2>OANDA API Key</h2>
 		<p class="hint">Your API key is used to access all your OANDA accounts. Generate one at Account &rarr; Manage API Access on the OANDA platform.</p>
@@ -208,6 +245,7 @@
 				</div>
 			</form>
 		</section>
+	{/if}
 	{/if}
 </div>
 
@@ -426,5 +464,49 @@
 	.btn-sm {
 		padding: 4px 10px;
 		font-size: 0.85em;
+	}
+	.broker-tabs {
+		display: flex;
+		gap: 4px;
+		margin-bottom: 16px;
+	}
+	.broker-tab {
+		padding: 8px 16px;
+		background: #0d1117;
+		border: 1px solid #21262d;
+		border-radius: 6px;
+		color: #8b949e;
+		cursor: pointer;
+		font-size: 0.9em;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+	.broker-tab:hover { background: #161b22; }
+	.broker-tab.active {
+		background: #161b22;
+		color: #c9d1d9;
+		border-color: #58a6ff;
+	}
+	.coming-soon-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: #d29922;
+	}
+	.coming-soon-panel {
+		background: #161b22;
+		border: 1px solid #21262d;
+		border-radius: 6px;
+		padding: 32px;
+		text-align: center;
+	}
+	.coming-soon-panel h3 { font-size: 1.2em; margin-bottom: 4px; }
+	.coming-soon-panel .description { color: #8b949e; font-size: 0.9em; margin-bottom: 16px; }
+	.coming-soon-text {
+		color: #d29922;
+		font-weight: 600;
+		font-size: 1.1em;
+		margin-bottom: 8px;
 	}
 </style>
