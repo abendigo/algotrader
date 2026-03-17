@@ -113,6 +113,7 @@ const entryDelay = parseInt(
   process.argv.find((a) => a.startsWith("--entry-delay="))?.split("=")[1] ?? "0",
   10,
 );
+const timeVaryingSpread = process.argv.includes("--time-varying-spread");
 
 const strategy = buildStrategy(strategyName);
 
@@ -122,6 +123,7 @@ const config: BacktestConfig = {
   spread: SPREADS,
   spreadMultiplier,
   executionDelay,
+  timeVaryingSpread,
 };
 
 const REPORTS_DIR = join(import.meta.dirname, "../../reports");
@@ -131,6 +133,7 @@ async function main() {
   if (spreadMultiplier !== 1.0) flags.push(`spread×${spreadMultiplier}`);
   if (executionDelay > 0) flags.push(`delay=${executionDelay} ticks`);
   if (entryDelay > 0) flags.push(`entry-delay=${entryDelay}min`);
+  if (timeVaryingSpread) flags.push("time-varying-spread");
   const flagStr = flags.length > 0 ? ` [${flags.join(", ")}]` : "";
   console.log(`Running ${strategyName} backtest on ${granularity} data (scale factor: ${scale(1)}x)${flagStr}...`);
   const result = await runBacktest(strategy, config);

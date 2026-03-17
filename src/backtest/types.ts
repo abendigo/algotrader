@@ -18,6 +18,8 @@ export interface BacktestConfig {
   spreadMultiplier?: number;
   /** Delay order execution by this many ticks on the same instrument (default: 0) */
   executionDelay?: number;
+  /** Use time-varying spread model (wider at session open, tighter during overlap) */
+  timeVaryingSpread?: boolean;
 }
 
 /** Signal snapshot captured at entry or exit */

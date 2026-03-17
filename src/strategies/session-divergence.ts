@@ -61,6 +61,8 @@ export interface SessionDivergenceConfig {
   cooldownPeriod: number;
   /** Minutes after session open to wait before scanning (default: 0). Lets spreads settle. */
   entryDelay: number;
+  /** Reject entry if current spread > typical spread × this multiple (default: 1.5) */
+  maxSpreadMultiple: number;
 }
 
 const DEFAULT_CONFIG: SessionDivergenceConfig = {
@@ -73,6 +75,7 @@ const DEFAULT_CONFIG: SessionDivergenceConfig = {
   units: 10_000,
   cooldownPeriod: 480,
   entryDelay: 0,
+  maxSpreadMultiple: 1.5,
 };
 
 interface Session {
@@ -157,6 +160,7 @@ export class SessionDivergenceStrategy implements Strategy {
 
   private config: SessionDivergenceConfig;
   private prices = new Map<Instrument, number>();
+  private ticks = new Map<Instrument, Tick>();
   private crossInfos: CrossInfo[] = [];
   private position: OpenPosition | null = null;
   private lastScanSession: string = "";
@@ -189,6 +193,7 @@ export class SessionDivergenceStrategy implements Strategy {
 
   async onTick(ctx: StrategyContext, tick: Tick): Promise<void> {
     this.prices.set(tick.instrument, (tick.bid + tick.ask) / 2);
+    this.ticks.set(tick.instrument, tick);
     this.tickCount++;
     this.currentTimestamp = tick.timestamp;
 
@@ -294,9 +299,18 @@ export class SessionDivergenceStrategy implements Strategy {
     // Negative deviation: actual < implied → buy (expect reversion up)
     const side = best.deviation > 0 ? "sell" : "buy";
 
-    const spreadCost = this.config.spreads?.[best.info.cross] ?? 0.0002;
-    const takeProfit = spreadCost * this.config.takeProfitMultiple;
-    const stopLoss = spreadCost * this.config.stopLossMultiple;
+    // Check live spread — reject if too wide (protects against session-open widening)
+    const typicalSpread = this.config.spreads?.[best.info.cross] ?? 0.0002;
+    const liveTick = this.ticks.get(best.info.cross);
+    if (liveTick && liveTick.ask > liveTick.bid) {
+      const liveSpread = liveTick.ask - liveTick.bid;
+      if (liveSpread > typicalSpread * this.config.maxSpreadMultiple) {
+        return; // spread too wide, skip this session
+      }
+    }
+
+    const takeProfit = typicalSpread * this.config.takeProfitMultiple;
+    const stopLoss = typicalSpread * this.config.stopLossMultiple;
 
     if (ctx.broker instanceof BacktestBroker) {
       ctx.broker.setEntrySignal({
@@ -415,6 +429,7 @@ export class SessionDivergenceStrategy implements Strategy {
   async dispose(): Promise<void> {
     this.crossInfos = [];
     this.prices.clear();
+    this.ticks.clear();
     this.position = null;
     this.cooldowns.clear();
   }

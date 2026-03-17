@@ -10,6 +10,7 @@ import type {
   Tick,
 } from "../core/types.js";
 import type { SignalSnapshot, Trade } from "./types.js";
+import { getSpreadMultiplier } from "./spread-model.js";
 
 interface InternalPosition {
   instrument: Instrument;
@@ -35,6 +36,7 @@ export class BacktestBroker implements Broker {
   private orderCounter = 0;
   private spread: number | Record<string, number>;
   private spreadMultiplier: number;
+  private useTimeVaryingSpread: boolean;
   private pendingEntrySignal?: SignalSnapshot;
   private pendingExitSignal?: SignalSnapshot;
 
@@ -42,17 +44,27 @@ export class BacktestBroker implements Broker {
     initialBalance: number,
     spread: number | Record<string, number>,
     spreadMultiplier: number = 1.0,
+    useTimeVaryingSpread: boolean = false,
   ) {
     this.balance = initialBalance;
     this.spread = spread;
     this.spreadMultiplier = spreadMultiplier;
+    this.useTimeVaryingSpread = useTimeVaryingSpread;
   }
 
   private getSpread(instrument: Instrument): number {
     const base = typeof this.spread === "number"
       ? this.spread
       : (this.spread[instrument] ?? 0.0002);
-    return base * this.spreadMultiplier;
+
+    let multiplier = this.spreadMultiplier;
+    if (this.useTimeVaryingSpread) {
+      const tick = this.currentTick.get(instrument);
+      if (tick) {
+        multiplier *= getSpreadMultiplier(tick.timestamp);
+      }
+    }
+    return base * multiplier;
   }
 
   /** Attach a signal snapshot to the next order (entry) */

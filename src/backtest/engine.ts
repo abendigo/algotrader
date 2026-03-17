@@ -30,6 +30,7 @@ export async function runBacktest(
     toDate,
     spreadMultiplier = 1.0,
     executionDelay = 0,
+    timeVaryingSpread = false,
   } = config;
 
   // Discover instruments from data directory if not specified
@@ -44,7 +45,7 @@ export async function runBacktest(
     );
   }
 
-  const broker = new BacktestBroker(initialBalance, spread, spreadMultiplier);
+  const broker = new BacktestBroker(initialBalance, spread, spreadMultiplier, timeVaryingSpread);
   const ctx = { broker };
 
   // Initialize strategy
