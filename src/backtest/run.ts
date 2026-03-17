@@ -22,6 +22,8 @@ import { CurrencyMomentumStrategy } from "../strategies/currency-momentum.js";
 import { SessionDivergenceStrategy } from "../strategies/session-divergence.js";
 import { LondonBreakoutStrategy } from "../strategies/london-breakout.js";
 import { CrossMomentumStrategy } from "../strategies/cross-momentum.js";
+import { RangeFadeStrategy } from "../strategies/range-fade.js";
+import { CorrelationPairsStrategy } from "../strategies/correlation-pairs.js";
 import { runBacktest, printResults } from "./engine.js";
 import { exportHTML } from "./export-html.js";
 import { exportCSV } from "./export-csv.js";
@@ -99,14 +101,19 @@ function buildStrategy(name: string): Strategy {
         cooldownPeriod: 480,             // 8 hour cooldown per instrument
         entryDelay,                      // minutes after session open to wait (0 = immediate)
       });
-    case "london-breakout":
-      return new LondonBreakoutStrategy({
+    case "london-breakout": {
+      const lbConfig: Partial<import("../strategies/london-breakout.js").LondonBreakoutConfig> = {
         minBreakoutFraction: 0.1,
-        rewardRatio: 1.5,
+        rewardRatio: rewardRatio || 1.5,
         maxRangePct: 0.005,
         minRangePct: 0.0005,
         units: 10_000,
-      });
+      };
+      if (pairsFlag) {
+        lbConfig.instruments = pairsFlag.split(",");
+      }
+      return new LondonBreakoutStrategy(lbConfig);
+    }
     case "cross-momentum":
       return new CrossMomentumStrategy({
         deviationLookback: 60,
@@ -120,8 +127,29 @@ function buildStrategy(name: string): Strategy {
         spreads: SPREADS,
         maxPositions: 3,
       });
+    case "range-fade":
+      return new RangeFadeStrategy({
+        breakoutConfirmFraction: 0.1,
+        takeProfitRangeFraction: 0.8,
+        stopBeyondExtremeFraction: 0.3,
+        maxRangePct: 0.004,
+        minRangePct: 0.0003,
+        units: 10_000,
+      });
+    case "correlation-pairs":
+      return new CorrelationPairsStrategy({
+        instrumentA: "AUD_USD",
+        instrumentB: "NZD_USD",
+        lookback: 1440,
+        entryZ: 2.0,
+        exitZ: 0.5,
+        maxHold: 2880,
+        stopZ: 3.5,
+        units: 10_000,
+        warmupPeriod: 720,
+      });
     default:
-      console.error(`Unknown strategy: ${name}. Available: lead-lag, cross-drift, currency-momentum, session-divergence, london-breakout, cross-momentum`);
+      console.error(`Unknown strategy: ${name}. Available: lead-lag, cross-drift, currency-momentum, session-divergence, london-breakout, cross-momentum, range-fade, correlation-pairs`);
       process.exit(1);
   }
 }
@@ -139,6 +167,10 @@ const entryDelay = parseInt(
   10,
 );
 const timeVaryingSpread = process.argv.includes("--time-varying-spread");
+const rewardRatio = parseFloat(
+  process.argv.find((a) => a.startsWith("--reward="))?.split("=")[1] ?? "0",
+);
+const pairsFlag = process.argv.find((a) => a.startsWith("--pairs="))?.split("=")[1] ?? "";
 
 const strategy = buildStrategy(strategyName);
 
