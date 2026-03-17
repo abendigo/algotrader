@@ -443,7 +443,13 @@ function buildEquityCurve(r: BacktestResult): string {
   for (let i = 0; i <= xSteps; i++) {
     const t = tMin + (tRange * i) / xSteps;
     const xPos = x(t);
-    const label = new Date(t).toISOString().slice(11, 16);
+    // Show date for multi-day data, time for single-day
+    const spanDays = tRange / 86_400_000;
+    const label = spanDays > 2
+      ? new Date(t).toISOString().slice(0, 10)   // YYYY-MM-DD
+      : spanDays > 1
+        ? new Date(t).toISOString().slice(5, 16).replace("T", " ")  // MM-DD HH:MM
+        : new Date(t).toISOString().slice(11, 16); // HH:MM
     xLabels.push(
       `<text x="${xPos}" y="${H - 5}" text-anchor="middle" fill="#8b949e" font-size="10">${label}</text>`,
     );
