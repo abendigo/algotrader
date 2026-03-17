@@ -110,8 +110,8 @@ function buildStrategy(name: string): Strategy {
         units: 100,
         riskPerTrade: 0,               // fixed sizing
         stopRangeFraction: 1.0,         // stop at opposite side of Asian range
-        trailActivateFraction: 0,      // disabled — letting winners run to session end is better
-        trailDistanceFraction: 0.3,
+        trailActivateFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-activate="))?.split("=")[1] ?? "2.0"),
+        trailDistanceFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-dist="))?.split("=")[1] ?? "1.0"),
         instruments: pairsFlag
           ? pairsFlag.split(",")
           : ["EUR_USD", "GBP_USD", "USD_CAD", "USD_CHF", "AUD_USD", "NZD_USD"],
