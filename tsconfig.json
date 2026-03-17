@@ -15,7 +15,11 @@
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "#core/*": ["src/core/*"],
+      "#backtest/*": ["src/backtest/*"],
+      "#strategies/*": ["data/shared/strategies/*"],
+      "#data/*": ["src/data/*"],
+      "#brokers/*": ["src/brokers/*"]
     }
   },
   "include": ["src"],

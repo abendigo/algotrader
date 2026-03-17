@@ -20,7 +20,7 @@
 						<a href="/admin">Admin</a>
 					{/if}
 					<a href="/profile" class="user-link">{data.user.email}</a>
-					<a href="/logout" class="logout">Log out</a>
+					<a href="/logout" class="logout" data-sveltekit-reload>Log out</a>
 				{:else}
 					<a href="/login">Log In</a>
 					<a href="/register">Register</a>

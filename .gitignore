@@ -1,9 +1,9 @@
 node_modules/
 dist/
-/data/
+/data/brokers/
+/data/users/
+/data/users.json
+/data/sessions.json
 /reports/
 /logs/
-/strategies/*/
-!/strategies/shared/
-.env
 *.local

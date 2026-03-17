@@ -17,13 +17,16 @@
   "author": "",
   "license": "ISC",
   "type": "module",
+  "imports": {
+    "#core/*": "./src/core/*",
+    "#backtest/*": "./src/backtest/*",
+    "#strategies/*": "./data/shared/strategies/*",
+    "#data/*": "./src/data/*",
+    "#brokers/*": "./src/brokers/*"
+  },
   "devDependencies": {
     "@types/node": "^25.5.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "dotenv": "^17.3.1",
-    "zod": "^4.3.6"
   }
 }
