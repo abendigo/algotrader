@@ -1,9 +1,25 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, copyFileSync } from "fs";
 import { join } from "path";
 
-const STRATEGIES_DIR = join(import.meta.dirname, "../../../../strategies");
-const SHARED_DIR = join(STRATEGIES_DIR, "shared");
+const DATA_DIR = join(import.meta.dirname, "../../../../data");
+const SHARED_DIR = join(DATA_DIR, "shared/strategies");
+const USERS_DIR = join(DATA_DIR, "users");
 const MANIFEST_FILE = join(SHARED_DIR, "manifest.json");
+
+export interface ConfigFieldDef {
+  label: string;
+  type: "number" | "text";
+  default?: unknown;
+  placeholder?: string;
+  min?: number;
+  step?: number;
+}
+
+export interface ConfigFields {
+  common?: Record<string, ConfigFieldDef>;
+  backtest?: Record<string, ConfigFieldDef>;
+  live?: Record<string, ConfigFieldDef>;
+}
 
 export interface SharedStrategy {
   id: string;
@@ -15,13 +31,18 @@ export interface SharedStrategy {
   instruments: string;
   timeframe: string;
   backtestNote: string;
-  config: Record<string, unknown>;
+  configFields?: ConfigFields;
 }
 
 export interface UserStrategy {
   filename: string;
   name: string;
-  sourceId?: string; // shared strategy ID if copied from shared
+  sourceId?: string;
+  configFields?: ConfigFields;
+}
+
+function userStrategiesDir(userId: string): string {
+  return join(USERS_DIR, userId, "strategies");
 }
 
 export function listSharedStrategies(): SharedStrategy[] {
@@ -30,7 +51,7 @@ export function listSharedStrategies(): SharedStrategy[] {
 }
 
 export function listUserStrategies(userId: string): UserStrategy[] {
-  const userDir = join(STRATEGIES_DIR, userId);
+  const userDir = userStrategiesDir(userId);
   if (!existsSync(userDir)) return [];
 
   const manifestFile = join(userDir, "manifest.json");
@@ -55,7 +76,7 @@ export function copySharedStrategy(userId: string, strategyId: string): { succes
   const sourceFile = join(SHARED_DIR, strategy.filename);
   if (!existsSync(sourceFile)) return { success: false, error: "Strategy file not found" };
 
-  const userDir = join(STRATEGIES_DIR, userId);
+  const userDir = userStrategiesDir(userId);
   if (!existsSync(userDir)) mkdirSync(userDir, { recursive: true });
 
   const destFile = join(userDir, strategy.filename);
@@ -78,8 +99,7 @@ export function copySharedStrategy(userId: string, strategyId: string): { succes
 }
 
 export function getUserStrategyCode(userId: string, filename: string): string | null {
-  const userDir = join(STRATEGIES_DIR, userId);
-  const file = join(userDir, filename);
+  const file = join(userStrategiesDir(userId), filename);
   if (!existsSync(file)) return null;
   return readFileSync(file, "utf-8");
 }

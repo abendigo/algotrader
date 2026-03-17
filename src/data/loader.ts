@@ -11,7 +11,7 @@ import { readFileSync, existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import type { Candle, Instrument } from "../core/types.js";
 
-const DATA_ROOT = join(import.meta.dirname, "../../data");
+const DATA_ROOT = join(import.meta.dirname, "../../data/brokers");
 
 /** Default broker for data operations */
 const DEFAULT_BROKER = "oanda";

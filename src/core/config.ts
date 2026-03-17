@@ -1,24 +1,33 @@
-import { z } from "zod";
-import dotenv from "dotenv";
+import { findUser, getUserApiKey } from "./users.js";
 
-dotenv.config();
+export interface Config {
+  OANDA_API_KEY: string;
+  OANDA_ACCOUNT_ID: string;
+  OANDA_BASE_URL: string;
+}
 
-const configSchema = z.object({
-  OANDA_API_KEY: z.string().min(1),
-  OANDA_ACCOUNT_ID: z.string().min(1),
-  OANDA_BASE_URL: z
-    .string()
-    .url()
-    .default("https://api-fxpractice.oanda.com"),
-});
-
-export type Config = z.infer<typeof configSchema>;
-
-let _config: Config | null = null;
-
-export function getConfig(): Config {
-  if (!_config) {
-    _config = configSchema.parse(process.env);
+/**
+ * Build an OANDA config from a user's stored credentials.
+ * @param userIdOrEmail - user ID or email to look up
+ * @param accountId - OANDA account ID to use
+ */
+export function getConfigForUser(userIdOrEmail: string, accountId: string): Config {
+  const user = findUser(userIdOrEmail);
+  if (!user) {
+    throw new Error(`User not found: ${userIdOrEmail}`);
   }
-  return _config;
+
+  const apiKey = getUserApiKey(user.id);
+  if (!apiKey) {
+    throw new Error(`No OANDA API key set for ${user.email}. Add one on the profile page.`);
+  }
+
+  // TODO: detect practice vs live from account ID format
+  const baseUrl = "https://api-fxpractice.oanda.com";
+
+  return {
+    OANDA_API_KEY: apiKey,
+    OANDA_ACCOUNT_ID: accountId,
+    OANDA_BASE_URL: baseUrl,
+  };
 }

@@ -1,6 +1,6 @@
 export type { Broker } from "./broker.js";
-export type { Strategy, StrategyContext } from "./strategy.js";
-export { getConfig } from "./config.js";
+export type { Strategy, StrategyContext, HedgingMode } from "./strategy.js";
+export { getConfigForUser } from "./config.js";
 export type { Config } from "./config.js";
 export type {
   Candle,

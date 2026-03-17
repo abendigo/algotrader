@@ -59,6 +59,7 @@ export interface AccountSummary {
   unrealizedPL: number;
   currency: string;
   openPositions: number;
+  hedgingEnabled: boolean;
 }
 
 /** Candle granularity */
