@@ -1,5 +1,130 @@
 import type { BacktestResult, Trade } from "./types.js";
 
+function getStrategyExplainer(strategy?: string): string {
+  const wrap = (html: string) =>
+    `<div class="explainer"><h2>How This Strategy Works</h2>${html}</div>`;
+
+  switch (strategy) {
+    case "london-breakout":
+      return wrap(`
+        <p><strong>London Breakout</strong> trades the directional move that occurs when the London session opens.</p>
+        <dl>
+          <dt>Setup</dt>
+          <dd>During the Asian session (00:00&ndash;07:00 London time), price consolidates into a tight range as only Tokyo/Sydney are active. The <em>Asian range</em> is the high and low of this period.</dd>
+          <dt>Entry</dt>
+          <dd>After 08:00 London time, if price breaks above the Asian high &rarr; <strong>buy</strong>. If it breaks below the Asian low &rarr; <strong>sell</strong>. The breakout must exceed 10% of the range to filter noise.</dd>
+          <dt>Stop Loss</dt>
+          <dd>Placed at the opposite side of the Asian range. If you bought the upside breakout, the stop is at the Asian low.</dd>
+          <dt>Exit</dt>
+          <dd>Position is closed at London session end (16:00 London time). Fridays are skipped (historically poor performance).</dd>
+        </dl>
+        <h3>Trade Journal Fields</h3>
+        <dl>
+          <dt>Entry Reason</dt>
+          <dd><em>Asian range</em>: the overnight high/low levels. <em>Range %</em>: range size as a percentage of price. <em>Breakout at</em>: the price when the breakout was confirmed.</dd>
+          <dt>Exit Reason</dt>
+          <dd>Either <em>stop-loss</em> (hit opposite side of range) or <em>session-end</em> (16:00 London close). Shows the exit price and where the stop was.</dd>
+        </dl>`);
+
+    case "range-fade":
+      return wrap(`
+        <p><strong>Range Fade</strong> is the opposite of London Breakout &mdash; it bets that breakouts of the Asian range will fail and price will return inside.</p>
+        <dl>
+          <dt>Setup</dt>
+          <dd>Same Asian range measurement (00:00&ndash;07:00 London time).</dd>
+          <dt>Entry</dt>
+          <dd>Waits for price to break above the Asian high (or below the low), then <em>reverse back inside the range</em>. If the upside breakout fails &rarr; <strong>sell</strong>. If the downside breakout fails &rarr; <strong>buy</strong>.</dd>
+          <dt>Stop Loss</dt>
+          <dd>Beyond the breakout extreme (the furthest point the breakout reached before reversing).</dd>
+          <dt>Take Profit</dt>
+          <dd>Near the opposite side of the Asian range (80% of range).</dd>
+        </dl>`);
+
+    case "session-divergence":
+      return wrap(`
+        <p><strong>Session Open Divergence</strong> trades cross-currency mispricings at the open of major sessions.</p>
+        <dl>
+          <dt>Signal</dt>
+          <dd>At the start of London (08:00) or New York (09:30 local) sessions, each cross pair's actual rate is compared to its <em>implied rate</em> derived from the two USD-leg majors. The cross with the largest deviation is selected.</dd>
+          <dt>Entry</dt>
+          <dd>If the cross is above implied &rarr; <strong>sell</strong> (expect reversion down). If below &rarr; <strong>buy</strong>.</dd>
+          <dt>Exit</dt>
+          <dd>When the deviation reverts by 70%, or stop loss / session end is hit.</dd>
+        </dl>
+        <h3>Trade Journal Fields</h3>
+        <dl>
+          <dt>Deviation %</dt>
+          <dd>How far the actual cross rate is from the USD-implied rate, as a percentage.</dd>
+          <dt>Threshold multiple</dt>
+          <dd>The deviation divided by the minimum threshold &mdash; higher = stronger signal.</dd>
+        </dl>`);
+
+    case "correlation-pairs":
+      return wrap(`
+        <p><strong>Correlation Pairs</strong> trades the spread between two highly correlated instruments (AUD/USD and NZD/USD, ~95% correlation).</p>
+        <dl>
+          <dt>Signal</dt>
+          <dd>Computes the ratio AUD_USD / NZD_USD over a rolling window. When the z-score of this ratio exceeds &plusmn;2.0, the spread has diverged from its historical norm.</dd>
+          <dt>Entry</dt>
+          <dd>Z &gt; 2.0: spread too wide &rarr; <strong>short AUD_USD, long NZD_USD</strong>. Z &lt; -2.0: spread too narrow &rarr; <strong>long AUD_USD, short NZD_USD</strong>.</dd>
+          <dt>Exit</dt>
+          <dd>When z-score reverts past &plusmn;0.5, or hits stop z-score (3.5), or max hold time.</dd>
+        </dl>
+        <h3>Trade Journal Fields</h3>
+        <dl>
+          <dt>Z-Score</dt>
+          <dd>Standard deviations of the price ratio from its rolling mean.</dd>
+          <dt>Ratio</dt>
+          <dd>Current AUD_USD / NZD_USD price ratio vs the rolling mean.</dd>
+        </dl>`);
+
+    case "lead-lag":
+      return wrap(`
+        <p><strong>Lead-Lag Mean Reversion</strong> trades cross-currency pairs back toward their USD-implied fair value.</p>
+        <dl>
+          <dt>Signal</dt>
+          <dd>For each cross (e.g., AUD_CAD), computes the implied rate from the two USD legs (AUD_USD and USD_CAD). The deviation between actual and implied is tracked with a rolling z-score.</dd>
+          <dt>Entry</dt>
+          <dd>When |z-score| exceeds the entry threshold (2.0), enter against the deviation: sell if actual is above implied, buy if below.</dd>
+          <dt>Exit</dt>
+          <dd>When |z-score| drops below the exit threshold (0.5).</dd>
+        </dl>`);
+
+    case "cross-drift":
+      return wrap(`
+        <p><strong>Cross-Rate Drift</strong> combines trend detection with lead-lag entry timing.</p>
+        <dl>
+          <dt>Signal</dt>
+          <dd>Detects the drift direction of each cross using linear regression over a slow window, then uses the lead-lag deviation for entry timing &mdash; only entering in the drift direction when the deviation gives a favorable price.</dd>
+          <dt>Exit</dt>
+          <dd>Take profit, stop loss, drift reversal, or max hold time.</dd>
+        </dl>`);
+
+    case "currency-momentum":
+      return wrap(`
+        <p><strong>Currency Strength Momentum</strong> ranks all 8 currencies by their rate-of-change against USD, then trades the cross between the strongest and weakest.</p>
+        <dl>
+          <dt>Entry</dt>
+          <dd>When the momentum spread between strongest and weakest currencies exceeds the threshold, go long strongest vs short weakest via their cross pair.</dd>
+          <dt>Exit</dt>
+          <dd>When the ranking changes, or take profit / stop loss / max hold.</dd>
+        </dl>`);
+
+    case "cross-momentum":
+      return wrap(`
+        <p><strong>Cross-Pair Momentum</strong> trades <em>with</em> cross-rate deviations instead of against them. When a cross's deviation from its USD-implied rate is accelerating, enter in that direction.</p>
+        <dl>
+          <dt>Signal</dt>
+          <dd>Rate-of-change of the deviation over a momentum window. Positive momentum = deviation growing = buy.</dd>
+          <dt>Exit</dt>
+          <dd>When momentum fades below a fraction of entry momentum, or stop loss / max hold.</dd>
+        </dl>`);
+
+    default:
+      return "";
+  }
+}
+
 /** Generate a self-contained HTML report from backtest results */
 export function exportHTML(result: BacktestResult, strategyName?: string): string {
   const r = result;
@@ -53,6 +178,12 @@ export function exportHTML(result: BacktestResult, strategyName?: string): strin
   .card .value { font-size: 1.3em; font-weight: 600; margin-top: 2px; }
   .pos { color: #3fb950; }
   .neg { color: #f85149; }
+  .explainer { background: #161b22; border: 1px solid #21262d; border-radius: 6px; padding: 16px 20px; margin: 16px 0; font-size: 0.9em; line-height: 1.7; }
+  .explainer p { margin-bottom: 12px; }
+  .explainer dl { margin: 8px 0; }
+  .explainer dt { color: #58a6ff; font-weight: 600; margin-top: 8px; }
+  .explainer dd { color: #c9d1d9; margin-left: 16px; margin-bottom: 4px; }
+  .explainer h3 { color: #8b949e; font-size: 0.95em; margin-top: 16px; margin-bottom: 4px; }
   .chart-container { background: #161b22; border: 1px solid #21262d; border-radius: 6px; padding: 16px; margin: 16px 0; overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 0.82em; }
   th { background: #161b22; color: #8b949e; text-align: left; padding: 8px 10px; position: sticky; top: 0; cursor: pointer; user-select: none; border-bottom: 2px solid #21262d; }
@@ -73,6 +204,8 @@ export function exportHTML(result: BacktestResult, strategyName?: string): strin
 
 <h1>${strategyName ?? "Strategy"} — Backtest Report</h1>
 <p style="color:#8b949e; font-size:0.9em">${startDate} to ${endDate} &middot; ${r.totalTicks.toLocaleString()} ticks &middot; ${r.config.granularity} data</p>
+
+${getStrategyExplainer(strategyName)}
 
 <h2>Performance Summary</h2>
 <div class="summary">
