@@ -7,7 +7,7 @@ export type { StrategyMeta, ConfigFields, ConfigFieldDef };
 const DATA_DIR = join(import.meta.dirname, "../../../../data");
 const SHARED_DIR = join(DATA_DIR, "shared/strategies");
 
-export async function listAllStrategies(userId: string): Promise<StrategyMeta[]> {
+export function listAllStrategies(userId: string): StrategyMeta[] {
   return listStrategies(userId);
 }
 

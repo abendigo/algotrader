@@ -23,7 +23,7 @@ export async function load({ locals }) {
     b.granularities.map((g) => ({ name: g.name, from: g.dateRange.from, to: g.dateRange.to }))
   );
 
-  const strategies = await listAllStrategies(userId);
+  const strategies = listAllStrategies(userId);
 
   return {
     strategies,

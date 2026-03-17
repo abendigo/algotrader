@@ -4,7 +4,7 @@ import { copySharedStrategy } from "$lib/server/strategies.js";
 
 export async function load({ locals }) {
   const userId = locals.user?.id ?? "";
-  const all = await listAllStrategies(userId);
+  const all = listAllStrategies(userId);
   const userIds = new Set(all.filter((s) => s.source === "user").map((s) => s.id));
   const shared = all.filter((s) => s.source === "shared");
 

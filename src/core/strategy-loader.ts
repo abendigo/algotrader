@@ -9,7 +9,7 @@
  * so they resolve correctly regardless of their location on disk.
  */
 
-import { existsSync, readdirSync } from "fs";
+import { existsSync, readdirSync, readFileSync } from "fs";
 import { join, resolve } from "path";
 import { pathToFileURL } from "url";
 import type { Strategy } from "./strategy.js";
@@ -88,22 +88,60 @@ export async function loadStrategy(
   return new StrategyCtor(config);
 }
 
-/** Import a strategy module and extract its metadata (name, configFields). */
-async function loadMeta(filePath: string, id: string, source: "user" | "shared"): Promise<StrategyMeta> {
-  const fileUrl = pathToFileURL(filePath).href;
-  const mod = await import(fileUrl);
-  const meta = mod.strategyMeta as { name?: string; description?: string; configFields?: ConfigFields } | undefined;
-  return {
-    id,
-    name: meta?.name ?? id.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
-    description: meta?.description,
-    configFields: meta?.configFields,
-    source,
-  };
+/**
+ * Extract strategyMeta from a strategy file's source text without importing it.
+ * The strategyMeta export is a plain object literal with no dependencies,
+ * so we can safely evaluate it in isolation.
+ */
+function extractMeta(filePath: string, id: string, source: "user" | "shared"): StrategyMeta {
+  const src = readFileSync(filePath, "utf-8");
+
+  // Find "export const strategyMeta = { ... };" — match the outermost braces
+  const startMatch = src.match(/export\s+const\s+strategyMeta\s*=\s*\{/);
+  if (!startMatch || startMatch.index === undefined) {
+    return {
+      id,
+      name: id.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+      source,
+    };
+  }
+
+  const braceStart = startMatch.index + startMatch[0].length - 1;
+  let depth = 1;
+  let i = braceStart + 1;
+  while (i < src.length && depth > 0) {
+    if (src[i] === "{") depth++;
+    else if (src[i] === "}") depth--;
+    i++;
+  }
+  const objText = src.slice(braceStart, i);
+
+  try {
+    // Strip TypeScript "as const" annotations before eval
+    const cleaned = objText.replace(/\bas\s+const\b/g, "");
+    const meta = new Function(`return (${cleaned})`)() as {
+      name?: string;
+      description?: string;
+      configFields?: ConfigFields;
+    };
+    return {
+      id,
+      name: meta.name ?? id.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+      description: meta.description,
+      configFields: meta.configFields,
+      source,
+    };
+  } catch {
+    return {
+      id,
+      name: id.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+      source,
+    };
+  }
 }
 
 /** List all strategies available to a user (user-owned + shared). */
-export async function listStrategies(userId: string): Promise<StrategyMeta[]> {
+export function listStrategies(userId: string): StrategyMeta[] {
   const results: StrategyMeta[] = [];
   const seen = new Set<string>();
 
@@ -112,10 +150,8 @@ export async function listStrategies(userId: string): Promise<StrategyMeta[]> {
   if (existsSync(userDir)) {
     for (const f of readdirSync(userDir).filter((f) => f.endsWith(".ts"))) {
       const id = f.replace(".ts", "");
-      try {
-        results.push(await loadMeta(join(userDir, f), id, "user"));
-        seen.add(id);
-      } catch { /* skip broken strategies */ }
+      results.push(extractMeta(join(userDir, f), id, "user"));
+      seen.add(id);
     }
   }
 
@@ -124,9 +160,7 @@ export async function listStrategies(userId: string): Promise<StrategyMeta[]> {
     for (const f of readdirSync(SHARED_STRATEGIES_DIR).filter((f) => f.endsWith(".ts"))) {
       const id = f.replace(".ts", "");
       if (seen.has(id)) continue;
-      try {
-        results.push(await loadMeta(join(SHARED_STRATEGIES_DIR, f), id, "shared"));
-      } catch { /* skip broken strategies */ }
+      results.push(extractMeta(join(SHARED_STRATEGIES_DIR, f), id, "shared"));
     }
   }
 
