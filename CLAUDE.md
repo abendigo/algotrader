@@ -23,7 +23,7 @@
 - Key hypothesis: crosses (AUD/CAD, etc.) reprice slower than majors (EUR/USD, etc.)
 
 ## Workflow
-- Always check for uncommitted changes (`git status`) before starting any new work
+- **Before starting any new work, check `git status` for uncommitted changes. If there are uncommitted changes, commit or stash them first — do NOT start new work on top of a dirty repo.**
 - **Commit after every logical unit of work** (new feature, refactor, bugfix) — do NOT batch multiple features into one commit session
 - If a task produces changes across multiple concerns, split into separate commits
 - Never leave the repo in a dirty state between tasks
