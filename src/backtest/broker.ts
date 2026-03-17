@@ -56,9 +56,10 @@ export class BacktestBroker implements Broker {
   }
 
   /** Apply random slippage against the trader (always adverse) */
-  private applySlippage(price: number, side: "buy" | "sell"): number {
+  private applySlippage(price: number, side: "buy" | "sell", instrument: Instrument): number {
     if (this.slippagePips === 0) return price;
-    const slip = Math.random() * this.slippagePips;
+    const pipSize = instrument.includes("JPY") ? 0.01 : 0.0001;
+    const slip = Math.random() * this.slippagePips * pipSize;
     return side === "buy" ? price + slip : price - slip;
   }
 
@@ -154,7 +155,7 @@ export class BacktestBroker implements Broker {
       order.side === "buy"
         ? mid + halfSpread
         : mid - halfSpread;
-    const fillPrice = this.applySlippage(rawFill, order.side);
+    const fillPrice = this.applySlippage(rawFill, order.side, order.instrument);
 
     const existing = this.positions.get(order.instrument);
 
@@ -226,7 +227,7 @@ export class BacktestBroker implements Broker {
       pos.side === "buy"
         ? mid - halfSpread
         : mid + halfSpread;
-    const fillPrice = this.applySlippage(rawFill, closeSide);
+    const fillPrice = this.applySlippage(rawFill, closeSide, instrument);
 
     this.closePositionInternal(pos, fillPrice, tick.timestamp);
 
