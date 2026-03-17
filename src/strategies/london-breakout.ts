@@ -35,8 +35,12 @@ export interface LondonBreakoutConfig {
   maxRangePct: number;
   /** Minimum Asian range as fraction of price — skip if too narrow (default: 0.0005 = 0.05%) */
   minRangePct: number;
-  /** Units per trade (default: 10000) */
+  /** Fixed units per trade (used if riskPerTrade is 0) */
   units: number;
+  /** Fraction of account equity to risk per trade (default: 0.03 = 3%). Overrides units. */
+  riskPerTrade: number;
+  /** Stop loss as fraction of Asian range from entry (default: 0.5 = midpoint of range). 1.0 = opposite side. */
+  stopRangeFraction: number;
   /** Which pairs to trade (default: USD majors) */
   instruments?: readonly string[];
   /** Days of week to skip (0=Sun, 5=Fri, etc.) */
@@ -49,6 +53,8 @@ const DEFAULT_CONFIG: LondonBreakoutConfig = {
   maxRangePct: 0.005,
   minRangePct: 0.0005,
   units: 10_000,
+  riskPerTrade: 0,
+  stopRangeFraction: 1.0,
 };
 
 interface AsianRange {
@@ -186,22 +192,36 @@ export class LondonBreakoutStrategy implements Strategy {
     let side: "buy" | "sell" | null = null;
     let stopLoss = 0;
     let takeProfit = 0;
+    const sf = this.config.stopRangeFraction;
 
     if (mid > asianHigh + minBreakout) {
-      // Breakout above Asian high
+      // Breakout above Asian high — stop is sf × range below entry
       side = "buy";
-      stopLoss = asianLow;
+      stopLoss = mid - range * sf;
       const risk = mid - stopLoss;
       takeProfit = this.config.rewardRatio > 0 ? mid + risk * this.config.rewardRatio : Infinity;
     } else if (mid < asianLow - minBreakout) {
-      // Breakout below Asian low
+      // Breakout below Asian low — stop is sf × range above entry
       side = "sell";
-      stopLoss = asianHigh;
+      stopLoss = mid + range * sf;
       const risk = stopLoss - mid;
       takeProfit = this.config.rewardRatio > 0 ? mid - risk * this.config.rewardRatio : -Infinity;
     }
 
     if (!side) return;
+
+    // Compute position size based on risk
+    let units = this.config.units;
+    if (this.config.riskPerTrade > 0) {
+      const account = await ctx.broker.getAccountSummary();
+      const equity = account.balance + account.unrealizedPL;
+      const maxRiskDollars = equity * this.config.riskPerTrade;
+      const riskPerUnit = Math.abs(mid - stopLoss);
+      if (riskPerUnit > 0) {
+        units = Math.floor(maxRiskDollars / riskPerUnit);
+        if (units < 1) return; // can't afford even 1 unit
+      }
+    }
 
     if (ctx.broker instanceof BacktestBroker) {
       ctx.broker.setEntrySignal({
@@ -222,7 +242,7 @@ export class LondonBreakoutStrategy implements Strategy {
       instrument: tick.instrument,
       side,
       type: "market",
-      units: this.config.units,
+      units,
     });
 
     this.positions.set(tick.instrument, {

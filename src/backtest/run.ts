@@ -104,14 +104,16 @@ function buildStrategy(name: string): Strategy {
     case "london-breakout": {
       const lbConfig: Partial<import("../strategies/london-breakout.js").LondonBreakoutConfig> = {
         minBreakoutFraction: 0.1,
-        rewardRatio: rewardRatio || 0, // 0 = no TP, exit at session end
+        rewardRatio: rewardRatio || 0,
         maxRangePct: 0.005,
         minRangePct: 0.0005,
         units: 10_000,
+        riskPerTrade: 0.03,            // 3% of equity per trade
+        stopRangeFraction: 0.5,         // stop at half the Asian range (tighter)
         instruments: pairsFlag
           ? pairsFlag.split(",")
-          : ["EUR_USD", "GBP_USD", "USD_CAD", "USD_CHF", "AUD_USD", "NZD_USD"], // exclude USD_JPY
-        skipDays: [5], // always skip Fridays
+          : ["EUR_USD", "GBP_USD", "USD_CAD", "USD_CHF", "AUD_USD", "NZD_USD"],
+        skipDays: [5],
       };
       return new LondonBreakoutStrategy(lbConfig);
     }
@@ -182,7 +184,7 @@ const strategy = buildStrategy(strategyName);
 
 const config: BacktestConfig = {
   granularity,
-  initialBalance: 100_000,
+  initialBalance: 1_000,
   spread: SPREADS,
   spreadMultiplier,
   executionDelay,
