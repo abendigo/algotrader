@@ -45,6 +45,10 @@ export interface LondonBreakoutConfig {
   instruments?: readonly string[];
   /** Days of week to skip (0=Sun, 5=Fri, etc.) */
   skipDays?: number[];
+  /** Activate trailing stop once PnL exceeds this fraction of Asian range (default: 0.5). 0 = disabled. */
+  trailActivateFraction: number;
+  /** Trail distance as fraction of Asian range behind the peak price (default: 0.3) */
+  trailDistanceFraction: number;
 }
 
 const DEFAULT_CONFIG: LondonBreakoutConfig = {
@@ -55,6 +59,8 @@ const DEFAULT_CONFIG: LondonBreakoutConfig = {
   units: 10_000,
   riskPerTrade: 0,
   stopRangeFraction: 1.0,
+  trailActivateFraction: 0.5,
+  trailDistanceFraction: 0.3,
 };
 
 interface AsianRange {
@@ -72,7 +78,10 @@ interface OpenPosition {
   stopLoss: number;
   asianHigh: number;
   asianLow: number;
+  asianRange: number;
   peakPnl: number;
+  peakPrice: number;
+  trailingActive: boolean;
 }
 
 function getLocalTime(timestamp: number, timezone: string): { hour: number; min: number } {
@@ -253,7 +262,10 @@ export class LondonBreakoutStrategy implements Strategy {
       stopLoss,
       asianHigh,
       asianLow,
+      asianRange: range,
       peakPnl: 0,
+      peakPrice: mid,
+      trailingActive: false,
     });
   }
 
@@ -270,15 +282,39 @@ export class LondonBreakoutStrategy implements Strategy {
 
     if (pnl > pos.peakPnl) pos.peakPnl = pnl;
 
+    // Track peak price for trailing stop
+    if (pos.side === "buy" && currentPrice > pos.peakPrice) pos.peakPrice = currentPrice;
+    if (pos.side === "sell" && currentPrice < pos.peakPrice) pos.peakPrice = currentPrice;
+
+    // Activate trailing stop once PnL exceeds threshold
+    const trailActivate = this.config.trailActivateFraction;
+    if (trailActivate > 0 && !pos.trailingActive && pnl >= pos.asianRange * trailActivate) {
+      pos.trailingActive = true;
+    }
+
     let shouldExit = false;
     let reason = "";
 
+    // Original stop loss and take profit
     if (pos.side === "buy") {
       if (currentPrice >= pos.takeProfit) { shouldExit = true; reason = "take-profit"; }
       if (currentPrice <= pos.stopLoss) { shouldExit = true; reason = "stop-loss"; }
     } else {
       if (currentPrice <= pos.takeProfit) { shouldExit = true; reason = "take-profit"; }
       if (currentPrice >= pos.stopLoss) { shouldExit = true; reason = "stop-loss"; }
+    }
+
+    // Trailing stop
+    if (pos.trailingActive && !shouldExit) {
+      const trailDist = pos.asianRange * this.config.trailDistanceFraction;
+      if (pos.side === "buy" && currentPrice <= pos.peakPrice - trailDist) {
+        shouldExit = true;
+        reason = "trailing-stop";
+      }
+      if (pos.side === "sell" && currentPrice >= pos.peakPrice + trailDist) {
+        shouldExit = true;
+        reason = "trailing-stop";
+      }
     }
 
     if (!shouldExit) return;
