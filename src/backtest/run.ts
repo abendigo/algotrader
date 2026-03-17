@@ -73,6 +73,10 @@ const pairsFlag = process.argv.find((a) => a.startsWith("--pairs="))?.split("=")
 const initialBalance = parseFloat(
   process.argv.find((a) => a.startsWith("--balance="))?.split("=")[1] ?? "1000",
 );
+const unitsFlag = process.argv.find((a) => a.startsWith("--units="))?.split("=")[1];
+const units = unitsFlag ? parseInt(unitsFlag, 10) : Math.round(initialBalance * 0.1);
+const stopFracFlag = process.argv.find((a) => a.startsWith("--stop-frac="))?.split("=")[1];
+const stopRangeFraction = stopFracFlag ? parseFloat(stopFracFlag) : undefined;
 const userFlag = process.argv.find((a) => a.startsWith("--user="))?.split("=")[1];
 
 // Resolve user and reports directory
@@ -104,7 +108,7 @@ const backtestConfig: BacktestConfig = {
 
 async function main() {
   const strategy = await loadStrategy(user!.id, strategyName, {
-    units: 10_000,
+    units,
     spreads: SPREADS,
     entryDelay,
     // london-breakout specific CLI flags
@@ -114,6 +118,7 @@ async function main() {
       : undefined,
     trailActivateFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-activate="))?.split("=")[1] ?? "2.0"),
     trailDistanceFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-dist="))?.split("=")[1] ?? "1.0"),
+    ...(stopRangeFraction !== undefined && { stopRangeFraction }),
   });
 
   const flags = [];
@@ -137,7 +142,7 @@ async function main() {
   const baseName = `${strategyName}-${granularity}-${ts}`;
 
   const strategyParams: Record<string, unknown> = {
-    units: 10_000,
+    units,
     entryDelay,
     rewardRatio: rewardRatio || 0,
     instruments: pairsFlag ? pairsFlag.split(",") : undefined,
