@@ -12,6 +12,7 @@
 			<a href="/" class="logo">Algotrader</a>
 			<div class="links">
 				<a href="/">Dashboard</a>
+				<a href="/live">Live</a>
 				<a href="/backtests">Backtests</a>
 			</div>
 		</div>
