@@ -15,7 +15,7 @@
 					<a href="/dashboard">Dashboard</a>
 					<a href="/live">Live</a>
 					<a href="/backtests">Backtests</a>
-					<span class="user-info">{data.user.email}</span>
+					<a href="/profile" class="user-link">{data.user.email}</a>
 					<a href="/logout" class="logout">Log out</a>
 				{:else}
 					<a href="/login">Log In</a>
@@ -71,7 +71,7 @@
 		align-items: center;
 		margin-left: auto;
 	}
-	.user-info {
+	.user-link {
 		color: #8b949e;
 		font-size: 0.85em;
 	}

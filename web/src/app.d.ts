@@ -1,7 +1,9 @@
+import type { PublicUser } from "$lib/server/auth.js";
+
 declare global {
 	namespace App {
 		interface Locals {
-			user: { id: string; email: string } | null;
+			user: PublicUser | null;
 		}
 	}
 }

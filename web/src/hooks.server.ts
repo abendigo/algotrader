@@ -7,10 +7,16 @@ export const handle: Handle = async ({ event, resolve }) => {
   const token = event.cookies.get("session");
   const user = validateSession(token);
 
-  // Attach user to locals for use in pages
-  event.locals.user = user ? { id: user.id, email: user.email } : null;
+  event.locals.user = user
+    ? {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        hasApiKey: !!user.oandaApiKey,
+        accounts: user.accounts,
+      }
+    : null;
 
-  // Protect non-public routes
   const isPublic = PUBLIC_PATHS.some(
     (p) => event.url.pathname === p || event.url.pathname.startsWith("/api/auth/"),
   );
