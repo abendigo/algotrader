@@ -111,7 +111,7 @@ function buildStrategy(name: string): Strategy {
         instruments: pairsFlag
           ? pairsFlag.split(",")
           : ["EUR_USD", "GBP_USD", "USD_CAD", "USD_CHF", "AUD_USD", "NZD_USD"], // exclude USD_JPY
-        skipDays: [5], // skip Fridays
+        skipDays: [5], // always skip Fridays
       };
       return new LondonBreakoutStrategy(lbConfig);
     }
