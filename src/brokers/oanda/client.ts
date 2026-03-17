@@ -225,6 +225,7 @@ interface OandaAccountSummary {
     unrealizedPL: string;
     currency: string;
     openPositionCount: number;
+    hedgingEnabled?: boolean;
   };
 }
 

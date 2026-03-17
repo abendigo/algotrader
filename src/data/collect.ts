@@ -1,21 +1,22 @@
 /**
  * Collects historical candle data from OANDA for all tracked instruments.
- * Saves one JSON file per instrument per day in data/{granularity}/{instrument}/.
+ * Saves one JSON file per instrument per day in data/brokers/oanda/{granularity}/{instrument}/.
  *
- * Usage: npx tsx src/data/collect.ts [granularity] [days]
- * Example: npx tsx src/data/collect.ts M1 30
+ * Usage: npm run collect [granularity] [days] --user=<id-or-email>
+ * Example: npm run collect M1 30 --user=mark@oosterveld.org
  *
  * Incrementally collects: skips days that already have data on disk.
  */
 
 import { OandaClient } from "../brokers/oanda/client.js";
-import { getConfig } from "../core/config.js";
+import { findUser, getUserApiKey } from "../core/users.js";
+import type { Config } from "../core/config.js";
 import type { Candle, Granularity } from "../core/types.js";
 import { ALL_INSTRUMENTS } from "./instruments.js";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 
-const DATA_DIR = join(import.meta.dirname, "../../data/oanda");
+const DATA_DIR = join(import.meta.dirname, "../../data/brokers/oanda");
 
 /** OANDA limits candle requests to 5000 per call. Paginate as needed. */
 const MAX_CANDLES_PER_REQUEST = 5000;
@@ -99,11 +100,36 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function main() {
-  const granularity = (process.argv[2] || "M1") as Granularity;
-  const days = parseInt(process.argv[3] || "7", 10);
+  const positionalArgs = process.argv.slice(2).filter((a) => !a.startsWith("--"));
+  const granularity = (positionalArgs[0] || "M1") as Granularity;
+  const days = parseInt(positionalArgs[1] || "7", 10);
 
-  const config = getConfig();
+  const userFlag = process.argv.find((a) => a.startsWith("--user="))?.split("=")[1];
+  if (!userFlag) {
+    console.error("Error: --user=<id-or-email> is required.");
+    console.error("Usage: npm run collect [granularity] [days] --user=<id-or-email>");
+    process.exit(1);
+  }
+  const user = findUser(userFlag);
+  if (!user) {
+    console.error(`User not found: ${userFlag}`);
+    process.exit(1);
+  }
+
+  const apiKey = getUserApiKey(user.id);
+  if (!apiKey) {
+    console.error(`No OANDA API key set for ${user.email}. Add one on the profile page.`);
+    process.exit(1);
+  }
+
+  // Data collection doesn't need a specific account — just a valid API key
+  const config: Config = {
+    OANDA_API_KEY: apiKey,
+    OANDA_ACCOUNT_ID: "",  // not used for candle fetching
+    OANDA_BASE_URL: "https://api-fxpractice.oanda.com",
+  };
   const client = new OandaClient(config);
+  console.log(`User: ${user.email}`);
 
   const to = new Date();
   const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);

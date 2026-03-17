@@ -1,8 +1,22 @@
 import { json } from "@sveltejs/kit";
-import { oandaFetch, getAccountPath } from "$lib/server/oanda.js";
+import type { RequestHandler } from "./$types.js";
+import { getUserOandaConfig, userOandaFetch } from "$lib/server/oanda.js";
 
-export async function GET() {
-  const data = await oandaFetch<{
+export const GET: RequestHandler = async ({ locals, url }) => {
+  const user = locals.user;
+  if (!user) return json({ error: "Not authenticated" }, { status: 401 });
+
+  const accountId = url.searchParams.get("account");
+  if (!accountId) {
+    return json({ error: "account query param required" }, { status: 400 });
+  }
+
+  const config = getUserOandaConfig(user.id, accountId);
+  if (!config) {
+    return json({ error: "No OANDA API key configured. Add one on your profile page." }, { status: 404 });
+  }
+
+  const data = await userOandaFetch<{
     account: {
       balance: string;
       unrealizedPL: string;
@@ -13,7 +27,7 @@ export async function GET() {
       marginUsed: string;
       marginAvailable: string;
     };
-  }>(`${getAccountPath()}/summary`);
+  }>(config, `/v3/accounts/${config.accountId}/summary`);
 
   const acct = data.account;
   return json({
@@ -27,4 +41,4 @@ export async function GET() {
     marginAvailable: parseFloat(acct.marginAvailable),
     equity: parseFloat(acct.balance) + parseFloat(acct.unrealizedPL),
   });
-}
+};

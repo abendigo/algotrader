@@ -1,14 +1,24 @@
 import { json } from "@sveltejs/kit";
-import { oandaFetch, getAccountPath } from "$lib/server/oanda.js";
+import type { RequestHandler } from "./$types.js";
+import { getUserOandaConfig, userOandaFetch } from "$lib/server/oanda.js";
 
-export async function GET() {
-  const data = await oandaFetch<{
+export const GET: RequestHandler = async ({ locals, url }) => {
+  const user = locals.user;
+  if (!user) return json({ error: "Not authenticated" }, { status: 401 });
+
+  const accountId = url.searchParams.get("account");
+  if (!accountId) return json([]);
+
+  const config = getUserOandaConfig(user.id, accountId);
+  if (!config) return json([]);
+
+  const data = await userOandaFetch<{
     positions: Array<{
       instrument: string;
       long: { units: string; averagePrice: string; unrealizedPL: string };
       short: { units: string; averagePrice: string; unrealizedPL: string };
     }>;
-  }>(`${getAccountPath()}/openPositions`);
+  }>(config, `/v3/accounts/${config.accountId}/openPositions`);
 
   const positions = [];
   for (const p of data.positions) {
@@ -36,4 +46,4 @@ export async function GET() {
   }
 
   return json(positions);
-}
+};

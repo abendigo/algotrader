@@ -28,6 +28,7 @@ export class OandaBroker implements Broker {
       unrealizedPL: parseFloat(acct.unrealizedPL),
       currency: acct.currency,
       openPositions: acct.openPositionCount,
+      hedgingEnabled: acct.hedgingEnabled ?? false,
     };
   }
 

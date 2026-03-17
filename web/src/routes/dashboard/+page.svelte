@@ -33,35 +33,6 @@
 		{/each}
 	</section>
 
-	<section class="reports-section">
-		<h2>Recent Backtests</h2>
-		{#if data.reports.length === 0}
-			<p class="muted">No backtest reports found. Run a backtest first.</p>
-		{:else}
-			<table>
-				<thead>
-					<tr>
-						<th>Strategy</th>
-						<th>Granularity</th>
-						<th>Timestamp</th>
-						<th>Actions</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each data.reports.slice(0, 20) as report}
-						<tr>
-							<td>{report.strategy}</td>
-							<td>{report.granularity}</td>
-							<td>{report.timestamp}</td>
-							<td>
-								<a href="/backtests/{report.filename}">View</a>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		{/if}
-	</section>
 </div>
 
 <style>
@@ -108,31 +79,10 @@
 	.value {
 		font-weight: 500;
 	}
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: 0.9em;
-	}
-	th {
-		text-align: left;
-		padding: 8px 12px;
-		color: #8b949e;
-		border-bottom: 2px solid #21262d;
-	}
-	td {
-		padding: 8px 12px;
-		border-bottom: 1px solid #21262d;
-	}
-	tr:hover td {
-		background: #1c2128;
-	}
 	.broker-name {
 		font-size: 0.95em;
 		color: #58a6ff;
 		margin: 12px 0 8px;
 		text-transform: capitalize;
-	}
-	.muted {
-		color: #8b949e;
 	}
 </style>
