@@ -10,16 +10,6 @@ const SESSIONS_FILE = join(DATA_DIR, "sessions.json");
 // Encryption key for API keys (derived from a fixed salt — in production, use an env var)
 const ENCRYPTION_KEY = scryptSync("algotrader-encryption-key", "salt", 32);
 
-export interface OandaAccount {
-  id: string;
-  accountId: string;
-  label: string;
-  strategy: string;
-  type: "practice" | "live";
-  units: number;
-  active: boolean;
-}
-
 export interface User {
   id: string;
   email: string;
@@ -27,7 +17,6 @@ export interface User {
   role: "admin" | "user";
   createdAt: string;
   oandaApiKey?: string; // encrypted
-  accounts: OandaAccount[];
 }
 
 export interface PublicUser {
@@ -35,7 +24,6 @@ export interface PublicUser {
   email: string;
   role: "admin" | "user";
   hasApiKey: boolean;
-  accounts: OandaAccount[];
 }
 
 interface Session {
@@ -93,7 +81,6 @@ function toPublicUser(user: User): PublicUser {
     email: user.email,
     role: user.role,
     hasApiKey: !!user.oandaApiKey,
-    accounts: user.accounts,
   };
 }
 
@@ -122,7 +109,6 @@ export async function register(
     passwordHash,
     role,
     createdAt: new Date().toISOString(),
-    accounts: [],
   });
 
   saveUsers(users);
@@ -204,92 +190,71 @@ export function clearApiKey(userId: string): void {
   saveUsers(users);
 }
 
-// --- Account management ---
+// --- OANDA API helpers ---
 
-export function addAccount(
-  userId: string,
-  accountId: string,
-  label: string,
-  strategy: string,
-  type: "practice" | "live",
-  units: number,
-): OandaAccount | null {
-  const users = loadUsers();
-  const user = users.find((u) => u.id === userId);
-  if (!user) return null;
-
-  const account: OandaAccount = {
-    id: randomBytes(8).toString("hex"),
-    accountId,
-    label,
-    strategy,
-    type,
-    units,
-    active: true,
-  };
-
-  user.accounts.push(account);
-  saveUsers(users);
-  return account;
+export interface DiscoveredAccount {
+  id: string;
+  alias: string;
+  balance: number;
+  currency: string;
+  openTradeCount: number;
+  openPositionCount: number;
+  pl: number;
+  hedgingEnabled: boolean;
 }
 
-export function removeAccount(userId: string, accountInternalId: string): void {
-  const users = loadUsers();
-  const user = users.find((u) => u.id === userId);
-  if (!user) return;
-  user.accounts = user.accounts.filter((a) => a.id !== accountInternalId);
-  saveUsers(users);
-}
-
-export function updateAccount(
-  userId: string,
-  accountInternalId: string,
-  updates: Partial<Pick<OandaAccount, "label" | "strategy" | "units" | "active">>,
-): void {
-  const users = loadUsers();
-  const user = users.find((u) => u.id === userId);
-  if (!user) return;
-  const account = user.accounts.find((a) => a.id === accountInternalId);
-  if (!account) return;
-  Object.assign(account, updates);
-  saveUsers(users);
-}
-
-// --- OANDA API helpers for user accounts ---
-
-export async function listOandaAccounts(
+/** Discover accounts accessible with the given API key and fetch their summaries. */
+export async function discoverAccounts(
   apiKey: string,
-): Promise<{ id: string; tags: string[] }[]> {
+): Promise<{ accounts: DiscoveredAccount[]; error?: string }> {
   const baseUrl = "https://api-fxpractice.oanda.com";
-  const res = await fetch(`${baseUrl}/v3/accounts`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  if (!res.ok) return [];
-  const data = (await res.json()) as { accounts: { id: string; tags: string[] }[] };
-  return data.accounts;
-}
-
-export async function testConnection(
-  apiKey: string,
-  accountId: string,
-): Promise<{ success: boolean; balance?: number; currency?: string; error?: string }> {
+  let res: Response;
   try {
-    const baseUrl = "https://api-fxpractice.oanda.com";
-    const res = await fetch(`${baseUrl}/v3/accounts/${accountId}/summary`, {
+    res = await fetch(`${baseUrl}/v3/accounts`, {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
-
-    if (!res.ok) {
-      return { success: false, error: `OANDA API error ${res.status}` };
-    }
-
-    const data = (await res.json()) as { account: { balance: string; currency: string } };
-    return {
-      success: true,
-      balance: parseFloat(data.account.balance),
-      currency: data.account.currency,
-    };
-  } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  } catch {
+    return { accounts: [], error: "Failed to connect to OANDA" };
   }
+  if (!res.ok) {
+    return { accounts: [], error: `OANDA API error: ${res.status}` };
+  }
+  const data = (await res.json()) as { accounts: { id: string }[] };
+
+  const accounts: DiscoveredAccount[] = [];
+  await Promise.all(
+    data.accounts.map(async (acct) => {
+      try {
+        const summaryRes = await fetch(`${baseUrl}/v3/accounts/${acct.id}/summary`, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!summaryRes.ok) return;
+        const summary = (await summaryRes.json()) as {
+          account: {
+            alias: string;
+            balance: string;
+            currency: string;
+            openTradeCount: number;
+            openPositionCount: number;
+            pl: string;
+            hedgingEnabled?: boolean;
+          };
+        };
+        accounts.push({
+          id: acct.id,
+          alias: summary.account.alias ?? "",
+          balance: parseFloat(summary.account.balance),
+          currency: summary.account.currency,
+          openTradeCount: summary.account.openTradeCount,
+          openPositionCount: summary.account.openPositionCount,
+          pl: parseFloat(summary.account.pl),
+          hedgingEnabled: summary.account.hedgingEnabled ?? false,
+        });
+      } catch {
+        // skip inaccessible accounts
+      }
+    }),
+  );
+
+  return { accounts };
 }

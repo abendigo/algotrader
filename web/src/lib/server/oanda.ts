@@ -1,46 +1,28 @@
 /**
  * Server-side OANDA connection for the web app.
- * Reads credentials from the parent project's .env file.
+ * Uses per-user credentials from user profile.
  */
 
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
+import { getApiKey } from "./auth.js";
 
-const ENV_PATH = join(import.meta.dirname, "../../../../.env");
-
-interface OandaConfig {
+export interface OandaConfig {
   apiKey: string;
   accountId: string;
   baseUrl: string;
 }
 
-let cachedConfig: OandaConfig | null = null;
+/** Get OANDA config for a user + specific account ID */
+export function getUserOandaConfig(userId: string, accountId: string): OandaConfig | null {
+  const apiKey = getApiKey(userId);
+  if (!apiKey) return null;
 
-export function getOandaConfig(): OandaConfig {
-  if (cachedConfig) return cachedConfig;
+  // TODO: detect practice vs live from account ID format
+  const baseUrl = "https://api-fxpractice.oanda.com";
 
-  if (!existsSync(ENV_PATH)) {
-    throw new Error("No .env file found. Set up OANDA credentials first.");
-  }
-
-  const env = readFileSync(ENV_PATH, "utf-8");
-  const vars: Record<string, string> = {};
-  for (const line of env.split("\n")) {
-    const match = line.match(/^(\w+)=(.+)$/);
-    if (match) vars[match[1]] = match[2];
-  }
-
-  cachedConfig = {
-    apiKey: vars.OANDA_API_KEY ?? "",
-    accountId: vars.OANDA_ACCOUNT_ID ?? "",
-    baseUrl: vars.OANDA_BASE_URL ?? "https://api-fxpractice.oanda.com",
-  };
-
-  return cachedConfig;
+  return { apiKey, accountId, baseUrl };
 }
 
-export async function oandaFetch<T>(path: string): Promise<T> {
-  const config = getOandaConfig();
+export async function userOandaFetch<T>(config: OandaConfig, path: string): Promise<T> {
   const url = `${config.baseUrl}${path}`;
   const res = await fetch(url, {
     headers: {
@@ -55,8 +37,4 @@ export async function oandaFetch<T>(path: string): Promise<T> {
   }
 
   return res.json() as Promise<T>;
-}
-
-export function getAccountPath(): string {
-  return `/v3/accounts/${getOandaConfig().accountId}`;
 }

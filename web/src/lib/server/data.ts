@@ -1,7 +1,7 @@
 import { readdirSync, existsSync, statSync } from 'fs';
 import { join } from 'path';
 
-const DATA_ROOT = join(import.meta.dirname, '../../../../data');
+const DATA_ROOT = join(import.meta.dirname, '../../../../data/brokers');
 
 export interface DatasetInfo {
 	broker: string;

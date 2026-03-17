@@ -13,7 +13,6 @@ export const handle: Handle = async ({ event, resolve }) => {
         email: user.email,
         role: user.role,
         hasApiKey: !!user.oandaApiKey,
-        accounts: user.accounts,
       }
     : null;
 

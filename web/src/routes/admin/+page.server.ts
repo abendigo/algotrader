@@ -4,6 +4,7 @@ import { join } from "path";
 import { getDataSummary } from "$lib/server/data.js";
 
 const DATA_DIR = join(import.meta.dirname, "../../../../data");
+const BROKERS_DIR = join(DATA_DIR, "brokers");
 const USERS_FILE = join(DATA_DIR, "users.json");
 
 interface UserSummary {
@@ -12,7 +13,6 @@ interface UserSummary {
   role: "admin" | "user";
   createdAt: string;
   hasApiKey: boolean;
-  accountCount: number;
 }
 
 function loadUserSummaries(): UserSummary[] {
@@ -24,12 +24,11 @@ function loadUserSummaries(): UserSummary[] {
     role: u.role,
     createdAt: u.createdAt,
     hasApiKey: !!u.oandaApiKey,
-    accountCount: u.accounts?.length ?? 0,
   }));
 }
 
 function getDataDiskUsage(): { path: string; size: string; files: number } {
-  if (!existsSync(DATA_DIR)) return { path: DATA_DIR, size: "0 MB", files: 0 };
+  if (!existsSync(BROKERS_DIR)) return { path: BROKERS_DIR, size: "0 MB", files: 0 };
 
   let totalSize = 0;
   let totalFiles = 0;
@@ -47,12 +46,12 @@ function getDataDiskUsage(): { path: string; size: string; files: number } {
     }
   }
 
-  walk(DATA_DIR);
+  walk(BROKERS_DIR);
 
   const mb = totalSize / (1024 * 1024);
   const sizeStr = mb > 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb.toFixed(0)} MB`;
 
-  return { path: DATA_DIR, size: sizeStr, files: totalFiles };
+  return { path: BROKERS_DIR, size: sizeStr, files: totalFiles };
 }
 
 export function load() {

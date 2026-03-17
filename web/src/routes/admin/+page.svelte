@@ -23,7 +23,6 @@
 					<th>Email</th>
 					<th>Role</th>
 					<th>API Key</th>
-					<th>Accounts</th>
 					<th>Registered</th>
 					<th></th>
 				</tr>
@@ -44,7 +43,6 @@
 								<span class="status-unset">Not set</span>
 							{/if}
 						</td>
-						<td>{user.accountCount}</td>
 						<td class="date">{user.createdAt.slice(0, 10)}</td>
 						<td>
 							<form method="POST" action="?/setRole" use:enhance={() => { return async ({ update }) => { await update(); await invalidateAll(); }; }}>
