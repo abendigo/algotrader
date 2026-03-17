@@ -49,8 +49,12 @@ export interface SessionDivergenceConfig {
   maxHold: number;
   /** Take profit in price units as multiple of spread (default: 20) */
   takeProfitMultiple: number;
-  /** Stop loss in price units as multiple of spread (default: 10) */
+  /** Stop loss in price units as multiple of spread (default: 4) */
   stopLossMultiple: number;
+  /** Once PnL reaches this multiple of spread, move stop to breakeven (default: 2). 0 = disabled. */
+  trailBreakevenAt: number;
+  /** Once PnL exceeds trailBreakevenAt, trail the stop this fraction behind peak PnL (default: 0.5) */
+  trailFraction: number;
   /** Units per trade (default: 10000) */
   units: number;
   /** Per-instrument spread for TP/SL calculation */
@@ -71,7 +75,9 @@ const DEFAULT_CONFIG: SessionDivergenceConfig = {
   minHold: 30,
   maxHold: 240,
   takeProfitMultiple: 20,
-  stopLossMultiple: 10,
+  stopLossMultiple: 4,
+  trailBreakevenAt: 2,
+  trailFraction: 0.5,
   units: 10_000,
   cooldownPeriod: 480,
   entryDelay: 0,
@@ -145,6 +151,9 @@ interface OpenPosition {
   ticksSinceEntry: number;
   takeProfit: number;
   stopLoss: number;
+  spreadCost: number;
+  peakPnl: number;
+  trailingActive: boolean;
   session: string;
   sessionCloseHour: number;
   sessionTimezone: string;
@@ -309,8 +318,9 @@ export class SessionDivergenceStrategy implements Strategy {
       }
     }
 
-    const takeProfit = typicalSpread * this.config.takeProfitMultiple;
-    const stopLoss = typicalSpread * this.config.stopLossMultiple;
+    const spreadCost = typicalSpread;
+    const takeProfit = spreadCost * this.config.takeProfitMultiple;
+    const stopLoss = spreadCost * this.config.stopLossMultiple;
 
     if (ctx.broker instanceof BacktestBroker) {
       ctx.broker.setEntrySignal({
@@ -343,6 +353,9 @@ export class SessionDivergenceStrategy implements Strategy {
       ticksSinceEntry: 0,
       takeProfit,
       stopLoss,
+      spreadCost,
+      peakPnl: 0,
+      trailingActive: false,
       session: session.name,
       sessionCloseHour: session.localCloseHour,
       sessionTimezone: session.timezone,
@@ -361,6 +374,24 @@ export class SessionDivergenceStrategy implements Strategy {
       pos.side === "buy"
         ? currentPrice - pos.entryPrice
         : pos.entryPrice - currentPrice;
+
+    // Update peak PnL and trailing stop
+    if (pnl > pos.peakPnl) {
+      pos.peakPnl = pnl;
+    }
+
+    // Activate trailing once PnL reaches breakeven threshold
+    const breakevenThreshold = pos.spreadCost * this.config.trailBreakevenAt;
+    if (!pos.trailingActive && this.config.trailBreakevenAt > 0 && pnl >= breakevenThreshold) {
+      pos.trailingActive = true;
+    }
+
+    // Trailing stop: if active, exit when PnL drops below (peakPnl * trailFraction)
+    // This means we keep at least trailFraction of our peak profit
+    const trailingStopHit =
+      pos.trailingActive &&
+      pos.peakPnl > 0 &&
+      pnl < pos.peakPnl * this.config.trailFraction;
 
     // Compute current deviation to check reversion
     const info = this.crossInfos.find((ci) => ci.cross === pos.instrument);
@@ -381,7 +412,7 @@ export class SessionDivergenceStrategy implements Strategy {
     }
 
     const elapsed = tick.timestamp - pos.entryTimestamp;
-    const minHoldMs = (this.config.minHold ?? 0) * 60_000; // config is in M1 candles = minutes
+    const minHoldMs = (this.config.minHold ?? 0) * 60_000;
     const maxHoldMs = this.config.maxHold * 60_000;
 
     // Hard exits always apply (stop loss, max hold, session end)
@@ -400,6 +431,7 @@ export class SessionDivergenceStrategy implements Strategy {
 
     const shouldExit =
       hardExit ||
+      trailingStopHit ||
       (pastMinHold && pnl >= pos.takeProfit) ||
       (pastMinHold && reversionAchieved);
 

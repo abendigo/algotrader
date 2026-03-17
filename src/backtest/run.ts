@@ -89,7 +89,9 @@ function buildStrategy(name: string): Strategy {
         minHold: 30,                     // 30 minutes minimum hold
         maxHold: 240,                    // 4 hours max hold
         takeProfitMultiple: 20,
-        stopLossMultiple: 10,
+        stopLossMultiple: 4,             // tight stop: 4x spread
+        trailBreakevenAt: 2,             // activate trailing at 2x spread profit
+        trailFraction: 0.5,             // keep at least 50% of peak profit
         units: 10_000,
         spreads: SPREADS,
         cooldownPeriod: 480,             // 8 hour cooldown per instrument
