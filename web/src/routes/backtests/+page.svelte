@@ -46,7 +46,6 @@
 				<th>Max DD</th>
 				<th>Sharpe</th>
 				<th>When</th>
-				<th></th>
 			</tr>
 		</thead>
 		<tbody>
@@ -69,12 +68,6 @@
 						<td colspan="6" class="muted">—</td>
 					{/if}
 					<td class="when">{report.timestamp.slice(0, 16).replace("T", " ")}</td>
-					<td class="actions" onclick={(e) => e.stopPropagation()}>
-						<a href="/backtests/{report.filename}">View</a>
-						{#if report.hasCsv}
-							<a href="/backtests/{report.filename}/csv" class="secondary">CSV</a>
-						{/if}
-					</td>
 				</tr>
 				{#if isOpen}
 					<tr class="detail-row">

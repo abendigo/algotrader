@@ -54,6 +54,11 @@ export function getUserReportsDir(userId: string): string {
   return join(DATA_DIR, "users", userId, "reports");
 }
 
+/** Get the user's backtests directory path */
+export function getUserBacktestsDir(userId: string): string {
+  return join(DATA_DIR, "users", userId, "backtests");
+}
+
 /** Get the user's strategies directory path */
 export function getUserStrategiesDir(userId: string): string {
   return join(DATA_DIR, "users", userId, "strategies");

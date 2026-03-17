@@ -16,12 +16,10 @@
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { createHash } from "crypto";
 import { join } from "path";
-import { findUser, getUserReportsDir } from "../core/users.js";
+import { findUser, getUserBacktestsDir } from "../core/users.js";
 import { loadStrategy } from "../core/strategy-loader.js";
 import type { Granularity } from "../core/types.js";
 import { runBacktest, printResults } from "./engine.js";
-import { exportHTML } from "./export-html.js";
-import { exportCSV } from "./export-csv.js";
 import { SPREADS } from "../data/spreads.js";
 import type { BacktestConfig } from "./types.js";
 
@@ -92,7 +90,7 @@ if (!user) {
   console.error("Use a user ID or email address.");
   process.exit(1);
 }
-const reportsDir = getUserReportsDir(user.id);
+const backtestsDir = getUserBacktestsDir(user.id);
 console.log(`User: ${user.email} (${user.role})`);
 
 const backtestConfig: BacktestConfig = {
@@ -135,8 +133,8 @@ async function main() {
   const result = await runBacktest(strategy, backtestConfig);
   printResults(result);
 
-  if (!existsSync(reportsDir)) {
-    mkdirSync(reportsDir, { recursive: true });
+  if (!existsSync(backtestsDir)) {
+    mkdirSync(backtestsDir, { recursive: true });
   }
 
   const strategyParams: Record<string, unknown> = {
@@ -177,17 +175,9 @@ async function main() {
   const epochMs = Date.now();
   const baseName = `${strategyName}-${granularity}-${epochMs}-${configHash}`;
 
-  const jsonPath = join(reportsDir, `${baseName}.json`);
+  const jsonPath = join(backtestsDir, `${baseName}.json`);
   writeFileSync(jsonPath, JSON.stringify({ strategyName, strategyConfig: strategyParams, backtestConfig, paramDescriptions, result }, null, 2));
-  console.log(`Result data: ${jsonPath}`);
-
-  const htmlPath = join(reportsDir, `${baseName}.html`);
-  writeFileSync(htmlPath, exportHTML(result, strategyName, { strategyConfig: strategyParams, backtestConfig, paramDescriptions }));
-  console.log(`HTML report: ${htmlPath}`);
-
-  const csvPath = join(reportsDir, `${baseName}.csv`);
-  writeFileSync(csvPath, exportCSV(result));
-  console.log(`CSV report:  ${csvPath}`);
+  console.log(`Result: ${jsonPath}`);
 }
 
 main().catch((err) => {

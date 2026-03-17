@@ -28,11 +28,14 @@ export interface ReportSummary {
 	strategy: string;
 	granularity: string;
 	timestamp: string;
-	hasHtml: boolean;
-	hasCsv: boolean;
 	metrics?: ReportMetrics;
 	backtestConfig?: ReportConfig;
 	strategyConfig?: Record<string, unknown>;
+	paramDescriptions?: Record<string, string>;
+}
+
+function userBacktestsDir(userId: string): string {
+	return join(USERS_DIR, userId, 'backtests');
 }
 
 function userReportsDir(userId: string): string {
@@ -40,74 +43,72 @@ function userReportsDir(userId: string): string {
 }
 
 export function listReports(userId: string): ReportSummary[] {
-	const reportsDir = userReportsDir(userId);
-	if (!existsSync(reportsDir)) return [];
+	const btDir = userBacktestsDir(userId);
+	if (!existsSync(btDir)) return [];
 
-	const files = readdirSync(reportsDir);
-	const htmlFiles = files.filter(f => f.endsWith('.html'));
+	const jsonFiles = readdirSync(btDir).filter(f => f.endsWith('.json'));
 
-	return htmlFiles.map(f => {
-		const base = f.replace('.html', '');
-		const csvExists = files.includes(`${base}.csv`);
-		const jsonExists = files.includes(`${base}.json`);
+	return jsonFiles.map(f => {
+		const base = f.replace('.json', '');
 
-		// Parse filename: strategy-GRANULARITY-YYYY-MM-DD-HH-MM-SS.html
+		// Parse filename: strategy-GRANULARITY-epochMs-configHash.json
+		// e.g. london-breakout-M5-1710712010123-a1b2c3d4.json
 		const parts = base.split('-');
 
-		let dateIdx = parts.findIndex(p => /^\d{4}$/.test(p));
+		// Find the epoch timestamp (13+ digit number)
+		const epochIdx = parts.findIndex(p => /^\d{10,}$/.test(p));
 		let strategy = 'unknown';
 		let granularity = 'M1';
+		let timestamp = '';
 
-		if (dateIdx >= 2) {
-			const maybeGran = parts[dateIdx - 1];
+		if (epochIdx >= 2) {
+			const maybeGran = parts[epochIdx - 1];
 			if (/^[SMHDW]\d*$/.test(maybeGran)) {
 				granularity = maybeGran;
-				strategy = parts.slice(0, dateIdx - 1).join('-');
+				strategy = parts.slice(0, epochIdx - 1).join('-');
 			} else {
-				strategy = parts.slice(0, dateIdx).join('-');
+				strategy = parts.slice(0, epochIdx).join('-');
 			}
+			timestamp = new Date(parseInt(parts[epochIdx])).toISOString();
 		}
-
-		const timestamp = dateIdx >= 0
-			? parts.slice(dateIdx).join('-').replace(/(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})/, '$1-$2-$3T$4:$5:$6')
-			: '';
 
 		let metrics: ReportMetrics | undefined;
 		let backtestConfig: ReportConfig | undefined;
-
 		let strategyConfig: Record<string, unknown> | undefined;
+		let paramDescriptions: Record<string, string> | undefined;
 
-		if (jsonExists) {
-			try {
-				const json = JSON.parse(readFileSync(join(reportsDir, `${base}.json`), 'utf-8'));
-				const r = json.result;
-				if (r) {
-					metrics = {
-						finalBalance: r.finalBalance,
-						returnPct: r.returnPct,
-						totalTrades: r.totalTrades,
-						winRate: r.winRate,
-						profitFactor: r.profitFactor,
-						maxDrawdownPct: r.maxDrawdownPct,
-						sharpeRatio: r.sharpeRatio,
+		try {
+			const json = JSON.parse(readFileSync(join(btDir, f), 'utf-8'));
+			const r = json.result;
+			if (r) {
+				metrics = {
+					finalBalance: r.finalBalance,
+					returnPct: r.returnPct,
+					totalTrades: r.totalTrades,
+					winRate: r.winRate,
+					profitFactor: r.profitFactor,
+					maxDrawdownPct: r.maxDrawdownPct,
+					sharpeRatio: r.sharpeRatio,
+				};
+				if (r.config) {
+					backtestConfig = {
+						spreadMultiplier: r.config.spreadMultiplier ?? 1,
+						executionDelay: r.config.executionDelay ?? 0,
+						timeVaryingSpread: r.config.timeVaryingSpread ?? false,
+						slippagePips: r.config.slippagePips,
+						fromDate: r.config.fromDate ?? (r.startTime ? new Date(r.startTime).toISOString().slice(0, 10) : undefined),
+						toDate: r.config.toDate ?? (r.endTime ? new Date(r.endTime).toISOString().slice(0, 10) : undefined),
 					};
-					if (r.config) {
-						backtestConfig = {
-							spreadMultiplier: r.config.spreadMultiplier ?? 1,
-							executionDelay: r.config.executionDelay ?? 0,
-							timeVaryingSpread: r.config.timeVaryingSpread ?? false,
-							slippagePips: r.config.slippagePips,
-							fromDate: r.config.fromDate ?? (r.startTime ? new Date(r.startTime).toISOString().slice(0, 10) : undefined),
-							toDate: r.config.toDate ?? (r.endTime ? new Date(r.endTime).toISOString().slice(0, 10) : undefined),
-						};
-					}
 				}
-				if (json.strategyConfig) {
-					strategyConfig = json.strategyConfig;
-				}
-			} catch {
-				// skip malformed JSON
 			}
+			if (json.strategyConfig) {
+				strategyConfig = json.strategyConfig;
+			}
+			if (json.paramDescriptions) {
+				paramDescriptions = json.paramDescriptions;
+			}
+		} catch {
+			// skip malformed JSON
 		}
 
 		return {
@@ -115,11 +116,10 @@ export function listReports(userId: string): ReportSummary[] {
 			strategy,
 			granularity,
 			timestamp,
-			hasHtml: true,
-			hasCsv: csvExists,
 			metrics,
 			backtestConfig,
 			strategyConfig,
+			paramDescriptions,
 		};
 	}).sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 }
