@@ -76,6 +76,8 @@ const unitsFlag = process.argv.find((a) => a.startsWith("--units="))?.split("=")
 const units = unitsFlag ? parseInt(unitsFlag, 10) : Math.round(initialBalance * 0.1);
 const stopFracFlag = process.argv.find((a) => a.startsWith("--stop-frac="))?.split("=")[1];
 const stopRangeFraction = stopFracFlag ? parseFloat(stopFracFlag) : undefined;
+const skipDaysFlag = process.argv.find((a) => a.startsWith("--skip-days="))?.split("=")[1];
+const skipDays = skipDaysFlag ? skipDaysFlag.split(",").map(Number) : undefined;
 const userFlag = process.argv.find((a) => a.startsWith("--user="))?.split("=")[1];
 
 // Resolve user and reports directory
@@ -118,6 +120,7 @@ async function main() {
     trailActivateFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-activate="))?.split("=")[1] ?? "2.0"),
     trailDistanceFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-dist="))?.split("=")[1] ?? "1.0"),
     ...(stopRangeFraction !== undefined && { stopRangeFraction }),
+    ...(skipDays !== undefined && { skipDays }),
   });
 
   const flags = [];
@@ -145,6 +148,7 @@ async function main() {
     trailActivateFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-activate="))?.split("=")[1] ?? "2.0"),
     trailDistanceFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-dist="))?.split("=")[1] ?? "1.0"),
     ...(stopRangeFraction !== undefined && { stopRangeFraction }),
+    ...(skipDays !== undefined && { skipDays }),
   };
   // Strip undefined values
   for (const k of Object.keys(strategyParams)) {
@@ -159,6 +163,7 @@ async function main() {
     trailActivateFraction: "Trailing stop activates after price moves this fraction of the Asian range in profit",
     trailDistanceFraction: "Trailing stop distance as a fraction of the Asian range",
     stopRangeFraction: "Stop loss distance as a fraction of the Asian range (0.5 = midpoint, 1.0 = opposite side, >1.0 = beyond range)",
+    skipDays: "Days of week to skip trading (0=Sun, 1=Mon, ..., 5=Fri, 6=Sat)",
     spreadMultiplier: "Multiply all spreads by this factor (1.0 = normal, 2.0 = stress test)",
     slippagePips: "Random adverse slippage in pips added to each fill",
     executionDelay: "Delay order execution by this many ticks (simulates latency)",
