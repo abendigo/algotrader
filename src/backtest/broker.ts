@@ -123,6 +123,7 @@ export class BacktestBroker implements Broker {
       unrealizedPL,
       currency: "USD",
       openPositions: this.positions.size,
+      hedgingEnabled: false,
     };
   }
 

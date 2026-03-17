@@ -1,29 +1,23 @@
 /**
  * CLI entry point for running backtests.
  *
- * Usage: npm run backtest [strategy] [granularity]
+ * Usage: npm run backtest [strategy] [granularity] --user=<id-or-email>
  * Examples:
- *   npm run backtest lead-lag M1
- *   npm run backtest session-divergence S5
+ *   npm run backtest lead-lag M1 --user=mark@oosterveld.org
+ *   npm run backtest session-divergence S5 --user=58bb271e...
+ *
+ * The --user flag is required and determines where reports are saved
+ * (data/users/{id}/reports/).
  *
  * All lookback/hold parameters are defined in M1 units (1 candle = 1 minute)
  * and automatically scaled for the target granularity.
- *
- * Generates HTML and CSV reports in reports/
  */
 
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
+import { findUser, getUserReportsDir } from "../core/users.js";
+import { loadStrategy } from "../core/strategy-loader.js";
 import type { Granularity } from "../core/types.js";
-import type { Strategy } from "../core/strategy.js";
-import { LeadLagStrategy } from "../strategies/lead-lag.js";
-import { CrossDriftStrategy } from "../strategies/cross-drift.js";
-import { CurrencyMomentumStrategy } from "../strategies/currency-momentum.js";
-import { SessionDivergenceStrategy } from "../strategies/session-divergence.js";
-import { LondonBreakoutStrategy } from "../strategies/london-breakout.js";
-import { CrossMomentumStrategy } from "../strategies/cross-momentum.js";
-import { RangeFadeStrategy } from "../strategies/range-fade.js";
-import { CorrelationPairsStrategy } from "../strategies/correlation-pairs.js";
 import { runBacktest, printResults } from "./engine.js";
 import { exportHTML } from "./export-html.js";
 import { exportCSV } from "./export-csv.js";
@@ -54,111 +48,6 @@ function scale(m1Candles: number): number {
   return Math.max(1, Math.round(m1Candles * (m1Seconds / targetSeconds)));
 }
 
-function buildStrategy(name: string): Strategy {
-  switch (name) {
-    case "lead-lag":
-      return new LeadLagStrategy({
-        entryZ: 2.0,
-        exitZ: 0.5,
-        lookback: scale(60),       // 1 hour
-        units: 10_000,
-      });
-    case "cross-drift":
-      return new CrossDriftStrategy({
-        driftLookback: scale(120),       // 2 hours
-        driftThreshold: 0.001,
-        deviationLookback: scale(30),    // 30 minutes
-        entryZ: 1.0,
-        maxHold: scale(60),              // 1 hour
-        takeProfitMultiple: 3.0,
-        stopLossMultiple: 2.0,
-        units: 10_000,
-        spreads: SPREADS,
-      });
-    case "currency-momentum":
-      return new CurrencyMomentumStrategy({
-        momentumLookback: scale(60),     // 1 hour
-        minSpread: 0.05,
-        maxHold: scale(120),             // 2 hours
-        takeProfitMultiple: 4.0,
-        stopLossMultiple: 2.0,
-        units: 10_000,
-        spreads: SPREADS,
-      });
-    case "session-divergence":
-      // Config values are in minutes (time-based, not candle-based)
-      return new SessionDivergenceStrategy({
-        minDeviationPct: 0.015,
-        reversionTarget: 0.7,
-        minHold: 30,                     // 30 minutes minimum hold
-        maxHold: 240,                    // 4 hours max hold
-        takeProfitMultiple: 20,
-        stopLossMultiple: 4,             // tight stop: 4x spread
-        trailBreakevenAt: 2,             // activate trailing at 2x spread profit
-        trailFraction: 0.5,             // keep at least 50% of peak profit
-        units: 10_000,
-        spreads: SPREADS,
-        cooldownPeriod: 480,             // 8 hour cooldown per instrument
-        entryDelay,                      // minutes after session open to wait (0 = immediate)
-      });
-    case "london-breakout": {
-      const lbConfig: Partial<import("../strategies/london-breakout.js").LondonBreakoutConfig> = {
-        minBreakoutFraction: 0.1,
-        rewardRatio: rewardRatio || 0,
-        maxRangePct: 0.005,
-        minRangePct: 0.0005,
-        units: 100,
-        riskPerTrade: 0,               // fixed sizing
-        stopRangeFraction: 1.0,         // stop at opposite side of Asian range
-        trailActivateFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-activate="))?.split("=")[1] ?? "2.0"),
-        trailDistanceFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-dist="))?.split("=")[1] ?? "1.0"),
-        instruments: pairsFlag
-          ? pairsFlag.split(",")
-          : ["EUR_USD", "GBP_USD", "USD_CAD", "USD_CHF", "AUD_USD", "NZD_USD"],
-        skipDays: [5],
-      };
-      return new LondonBreakoutStrategy(lbConfig);
-    }
-    case "cross-momentum":
-      return new CrossMomentumStrategy({
-        deviationLookback: 60,
-        momentumWindow: 30,
-        momentumThreshold: 0.005,
-        momentumExitFraction: 0.3,
-        maxHold: 360,
-        stopLossPct: 0.003,
-        units: 10_000,
-        maxSpread: 0.0005,
-        spreads: SPREADS,
-        maxPositions: 3,
-      });
-    case "range-fade":
-      return new RangeFadeStrategy({
-        breakoutConfirmFraction: 0.1,
-        takeProfitRangeFraction: 0.8,
-        stopBeyondExtremeFraction: 0.3,
-        maxRangePct: 0.004,
-        minRangePct: 0.0003,
-        units: 10_000,
-      });
-    case "correlation-pairs":
-      return new CorrelationPairsStrategy({
-        instrumentA: "AUD_USD",
-        instrumentB: "NZD_USD",
-        lookback: 1440,
-        entryZ: 2.0,
-        exitZ: 0.5,
-        maxHold: 2880,
-        stopZ: 3.5,
-        units: 10_000,
-        warmupPeriod: 720,
-      });
-    default:
-      console.error(`Unknown strategy: ${name}. Available: lead-lag, cross-drift, currency-momentum, session-divergence, london-breakout, cross-momentum, range-fade, correlation-pairs`);
-      process.exit(1);
-  }
-}
-
 // Optional flags: --spread-mult=2.0 --exec-delay=1 --entry-delay=5
 const spreadMultiplier = parseFloat(
   process.argv.find((a) => a.startsWith("--spread-mult="))?.split("=")[1] ?? "1.0",
@@ -181,12 +70,29 @@ const rewardRatio = parseFloat(
   process.argv.find((a) => a.startsWith("--reward="))?.split("=")[1] ?? "0",
 );
 const pairsFlag = process.argv.find((a) => a.startsWith("--pairs="))?.split("=")[1] ?? "";
+const initialBalance = parseFloat(
+  process.argv.find((a) => a.startsWith("--balance="))?.split("=")[1] ?? "1000",
+);
+const userFlag = process.argv.find((a) => a.startsWith("--user="))?.split("=")[1];
 
-const strategy = buildStrategy(strategyName);
+// Resolve user and reports directory
+if (!userFlag) {
+  console.error("Error: --user=<id-or-email> is required.");
+  console.error("Usage: npm run backtest <strategy> <granularity> --user=<id-or-email>");
+  process.exit(1);
+}
+const user = findUser(userFlag);
+if (!user) {
+  console.error(`User not found: ${userFlag}`);
+  console.error("Use a user ID or email address.");
+  process.exit(1);
+}
+const reportsDir = getUserReportsDir(user.id);
+console.log(`User: ${user.email} (${user.role})`);
 
-const config: BacktestConfig = {
+const backtestConfig: BacktestConfig = {
   granularity,
-  initialBalance: 1_000,
+  initialBalance,
   spread: SPREADS,
   spreadMultiplier,
   executionDelay,
@@ -196,9 +102,20 @@ const config: BacktestConfig = {
   toDate,
 };
 
-const REPORTS_DIR = join(import.meta.dirname, "../../reports");
-
 async function main() {
+  const strategy = await loadStrategy(user!.id, strategyName, {
+    units: 10_000,
+    spreads: SPREADS,
+    entryDelay,
+    // london-breakout specific CLI flags
+    rewardRatio: rewardRatio || 0,
+    instruments: pairsFlag
+      ? pairsFlag.split(",")
+      : undefined,
+    trailActivateFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-activate="))?.split("=")[1] ?? "2.0"),
+    trailDistanceFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-dist="))?.split("=")[1] ?? "1.0"),
+  });
+
   const flags = [];
   if (spreadMultiplier !== 1.0) flags.push(`spread×${spreadMultiplier}`);
   if (executionDelay > 0) flags.push(`delay=${executionDelay} ticks`);
@@ -209,25 +126,38 @@ async function main() {
   if (toDate) flags.push(`to=${toDate}`);
   const flagStr = flags.length > 0 ? ` [${flags.join(", ")}]` : "";
   console.log(`Running ${strategyName} backtest on ${granularity} data (scale factor: ${scale(1)}x)${flagStr}...`);
-  const result = await runBacktest(strategy, config);
+  const result = await runBacktest(strategy, backtestConfig);
   printResults(result);
 
-  if (!existsSync(REPORTS_DIR)) {
-    mkdirSync(REPORTS_DIR, { recursive: true });
+  if (!existsSync(reportsDir)) {
+    mkdirSync(reportsDir, { recursive: true });
   }
 
   const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
   const baseName = `${strategyName}-${granularity}-${ts}`;
 
-  const jsonPath = join(REPORTS_DIR, `${baseName}.json`);
-  writeFileSync(jsonPath, JSON.stringify({ strategyName, result }, null, 2));
+  const strategyParams: Record<string, unknown> = {
+    units: 10_000,
+    entryDelay,
+    rewardRatio: rewardRatio || 0,
+    instruments: pairsFlag ? pairsFlag.split(",") : undefined,
+    trailActivateFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-activate="))?.split("=")[1] ?? "2.0"),
+    trailDistanceFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-dist="))?.split("=")[1] ?? "1.0"),
+  };
+  // Strip undefined values
+  for (const k of Object.keys(strategyParams)) {
+    if (strategyParams[k] === undefined) delete strategyParams[k];
+  }
+
+  const jsonPath = join(reportsDir, `${baseName}.json`);
+  writeFileSync(jsonPath, JSON.stringify({ strategyName, strategyConfig: strategyParams, result }, null, 2));
   console.log(`Result data: ${jsonPath}`);
 
-  const htmlPath = join(REPORTS_DIR, `${baseName}.html`);
+  const htmlPath = join(reportsDir, `${baseName}.html`);
   writeFileSync(htmlPath, exportHTML(result, strategyName));
   console.log(`HTML report: ${htmlPath}`);
 
-  const csvPath = join(REPORTS_DIR, `${baseName}.csv`);
+  const csvPath = join(reportsDir, `${baseName}.csv`);
   writeFileSync(csvPath, exportCSV(result));
   console.log(`CSV report:  ${csvPath}`);
 }
