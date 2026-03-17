@@ -109,11 +109,10 @@
 		return filename.replace(".ts", "");
 	}
 
-	// Build a merged list of all strategies with their configFields
-	const allStrategies = $derived([
-		...data.strategies.map((s: any) => ({ id: strategySlug(s.filename), name: s.name, source: "mine" as const, configFields: (s.configFields ?? {}) as ConfigFields })),
-		...data.sharedStrategies.map((s: any) => ({ id: s.id, name: s.name, source: "shared" as const, configFields: (s.configFields ?? {}) as ConfigFields })),
-	]);
+	// Strategies are already merged by the server with source field
+	const allStrategies = $derived(
+		data.strategies.map((s: any) => ({ id: s.id, name: s.name, source: s.source as "user" | "shared", configFields: (s.configFields ?? {}) as ConfigFields }))
+	);
 
 	const selectedStrategy = $derived(allStrategies.find((s) => s.id === backtestStrategy));
 
@@ -262,16 +261,16 @@
 			<div class="action-row">
 				<select bind:value={backtestStrategy}>
 					<option value="">Select strategy...</option>
-					{#if data.strategies.length > 0}
+					{#if allStrategies.filter(s => s.source === "user").length > 0}
 						<optgroup label="My Strategies">
-							{#each data.strategies as s}
-								<option value={strategySlug(s.filename)}>{s.name}</option>
+							{#each allStrategies.filter(s => s.source === "user") as s}
+								<option value={s.id}>{s.name}</option>
 							{/each}
 						</optgroup>
 					{/if}
-					{#if data.sharedStrategies.length > 0}
+					{#if allStrategies.filter(s => s.source === "shared").length > 0}
 						<optgroup label="Shared">
-							{#each data.sharedStrategies as s}
+							{#each allStrategies.filter(s => s.source === "shared") as s}
 								<option value={s.id}>{s.name}</option>
 							{/each}
 						</optgroup>
@@ -386,16 +385,16 @@
 				<div class="action-row">
 					<select bind:value={liveStrategy}>
 						<option value="">Select strategy...</option>
-						{#if data.strategies.length > 0}
+						{#if allStrategies.filter(s => s.source === "user").length > 0}
 							<optgroup label="My Strategies">
-								{#each data.strategies as s}
-									<option value={strategySlug(s.filename)}>{s.name}</option>
+								{#each allStrategies.filter(s => s.source === "user") as s}
+									<option value={s.id}>{s.name}</option>
 								{/each}
 							</optgroup>
 						{/if}
-						{#if data.sharedStrategies.length > 0}
+						{#if allStrategies.filter(s => s.source === "shared").length > 0}
 							<optgroup label="Shared">
-								{#each data.sharedStrategies as s}
+								{#each allStrategies.filter(s => s.source === "shared") as s}
 									<option value={s.id}>{s.name}</option>
 								{/each}
 							</optgroup>

@@ -9,10 +9,33 @@
  * so they resolve correctly regardless of their location on disk.
  */
 
-import { existsSync } from "fs";
+import { existsSync, readdirSync } from "fs";
 import { join, resolve } from "path";
 import { pathToFileURL } from "url";
 import type { Strategy } from "./strategy.js";
+
+export interface ConfigFieldDef {
+  label: string;
+  type: "number" | "text";
+  default?: unknown;
+  placeholder?: string;
+  min?: number;
+  step?: number;
+}
+
+export interface ConfigFields {
+  common?: Record<string, ConfigFieldDef>;
+  backtest?: Record<string, ConfigFieldDef>;
+  live?: Record<string, ConfigFieldDef>;
+}
+
+export interface StrategyMeta {
+  id: string;
+  name: string;
+  description?: string;
+  configFields?: ConfigFields;
+  source: "user" | "shared";
+}
 
 const DATA_DIR = resolve(import.meta.dirname, "../../data");
 const SHARED_STRATEGIES_DIR = join(DATA_DIR, "shared/strategies");
@@ -63,4 +86,49 @@ export async function loadStrategy(
 
   const StrategyCtor = mod[strategyClassName] as new (config: Record<string, unknown>) => Strategy;
   return new StrategyCtor(config);
+}
+
+/** Import a strategy module and extract its metadata (name, configFields). */
+async function loadMeta(filePath: string, id: string, source: "user" | "shared"): Promise<StrategyMeta> {
+  const fileUrl = pathToFileURL(filePath).href;
+  const mod = await import(fileUrl);
+  const meta = mod.strategyMeta as { name?: string; description?: string; configFields?: ConfigFields } | undefined;
+  return {
+    id,
+    name: meta?.name ?? id.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+    description: meta?.description,
+    configFields: meta?.configFields,
+    source,
+  };
+}
+
+/** List all strategies available to a user (user-owned + shared). */
+export async function listStrategies(userId: string): Promise<StrategyMeta[]> {
+  const results: StrategyMeta[] = [];
+  const seen = new Set<string>();
+
+  // User strategies first (take priority)
+  const userDir = join(DATA_DIR, "users", userId, "strategies");
+  if (existsSync(userDir)) {
+    for (const f of readdirSync(userDir).filter((f) => f.endsWith(".ts"))) {
+      const id = f.replace(".ts", "");
+      try {
+        results.push(await loadMeta(join(userDir, f), id, "user"));
+        seen.add(id);
+      } catch { /* skip broken strategies */ }
+    }
+  }
+
+  // Shared strategies (skip if user has their own version)
+  if (existsSync(SHARED_STRATEGIES_DIR)) {
+    for (const f of readdirSync(SHARED_STRATEGIES_DIR).filter((f) => f.endsWith(".ts"))) {
+      const id = f.replace(".ts", "");
+      if (seen.has(id)) continue;
+      try {
+        results.push(await loadMeta(join(SHARED_STRATEGIES_DIR, f), id, "shared"));
+      } catch { /* skip broken strategies */ }
+    }
+  }
+
+  return results;
 }

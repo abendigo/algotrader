@@ -1,4 +1,4 @@
-import { listUserStrategies, listSharedStrategies } from "$lib/server/strategies.js";
+import { listAllStrategies } from "$lib/server/strategies.js";
 import { getApiKey, discoverAccounts } from "$lib/server/auth.js";
 import { getDataSummary } from "$lib/server/data.js";
 
@@ -19,14 +19,14 @@ export async function load({ locals }) {
   }
 
   const dataSummary = getDataSummary();
-  // Flatten granularities across all brokers with their date ranges
   const availableGranularities = dataSummary.brokers.flatMap((b) =>
     b.granularities.map((g) => ({ name: g.name, from: g.dateRange.from, to: g.dateRange.to }))
   );
 
+  const strategies = await listAllStrategies(userId);
+
   return {
-    strategies: listUserStrategies(userId),
-    sharedStrategies: listSharedStrategies(),
+    strategies,
     accounts,
     availableGranularities,
   };

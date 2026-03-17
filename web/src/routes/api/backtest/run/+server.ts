@@ -23,6 +23,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   if (body.reward != null) options.reward = body.reward;
   if (body.pairs) options.pairs = body.pairs;
   if (body.balance != null) options.balance = body.balance;
+  if (body.strategyConfig) options.strategyConfig = body.strategyConfig as Record<string, unknown>;
 
   const result = startBacktest(user.id, user.email, strategy, granularity, options);
   if (!result.success) {

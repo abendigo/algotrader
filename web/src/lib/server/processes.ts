@@ -132,6 +132,7 @@ export interface BacktestOptions {
   reward?: number;
   pairs?: string;
   balance?: number;
+  strategyConfig?: Record<string, unknown>;
 }
 
 export function startBacktest(
@@ -158,6 +159,25 @@ export function startBacktest(
   if (options.reward) args.push(`--reward=${options.reward}`);
   if (options.pairs) args.push(`--pairs=${options.pairs}`);
   if (options.balance) args.push(`--balance=${options.balance}`);
+
+  // Forward strategy-specific config fields as CLI flags
+  if (options.strategyConfig) {
+    const flagMap: Record<string, string> = {
+      units: "--units",
+      stopRangeFraction: "--stop-frac",
+      skipDays: "--skip-days",
+      trailActivateFraction: "--trail-activate",
+      trailDistanceFraction: "--trail-dist",
+      rewardRatio: "--reward",
+      instruments: "--pairs",
+      entryDelay: "--entry-delay",
+    };
+    for (const [key, value] of Object.entries(options.strategyConfig)) {
+      if (value == null || value === "" || value === 0) continue;
+      const flag = flagMap[key];
+      if (flag) args.push(`${flag}=${value}`);
+    }
+  }
 
   const child = spawn(TSX, args, {
     cwd: PROJECT_ROOT,
