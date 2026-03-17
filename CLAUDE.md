@@ -36,5 +36,7 @@
 - `npm run collect [granularity] [days]` — pull historical candles from OANDA (e.g., `npm run collect M1 7`)
 - `npm run analyze [granularity]` — run lead-lag analysis on collected data (e.g., `npm run analyze M1`)
 - `npm run backtest [strategy] [granularity]` — run backtest (e.g., `npm run backtest lead-lag M1`)
-  - Strategies: `lead-lag`, `cross-drift`, `currency-momentum`
-  - Generates HTML and CSV reports in `reports/`
+  - Strategies: `lead-lag`, `cross-drift`, `currency-momentum`, `session-divergence`, `london-breakout`, `cross-momentum`, `range-fade`, `correlation-pairs`
+  - Generates HTML, CSV, and JSON reports in `reports/`
+- `npm run regenerate [filename]` — regenerate HTML/CSV from saved JSON results
+- `npm run live` — run London Breakout strategy live on OANDA practice account (logs to `logs/`)

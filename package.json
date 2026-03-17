@@ -10,7 +10,8 @@
     "collect": "tsx src/data/collect.ts",
     "analyze": "tsx src/data/analyze.ts",
     "backtest": "tsx src/backtest/run.ts",
-    "regenerate": "tsx src/backtest/regenerate.ts"
+    "regenerate": "tsx src/backtest/regenerate.ts",
+    "live": "tsx src/live/runner.ts"
   },
   "keywords": [],
   "author": "",
