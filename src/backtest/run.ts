@@ -204,6 +204,10 @@ async function main() {
   const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
   const baseName = `${strategyName}-${granularity}-${ts}`;
 
+  const jsonPath = join(REPORTS_DIR, `${baseName}.json`);
+  writeFileSync(jsonPath, JSON.stringify({ strategyName, result }, null, 2));
+  console.log(`Result data: ${jsonPath}`);
+
   const htmlPath = join(REPORTS_DIR, `${baseName}.html`);
   writeFileSync(htmlPath, exportHTML(result, strategyName));
   console.log(`HTML report: ${htmlPath}`);

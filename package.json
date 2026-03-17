@@ -9,7 +9,8 @@
     "dev": "tsx src/index.ts",
     "collect": "tsx src/data/collect.ts",
     "analyze": "tsx src/data/analyze.ts",
-    "backtest": "tsx src/backtest/run.ts"
+    "backtest": "tsx src/backtest/run.ts",
+    "regenerate": "tsx src/backtest/regenerate.ts"
   },
   "keywords": [],
   "author": "",
