@@ -29,7 +29,7 @@ import { USD_MAJORS } from "../data/instruments.js";
 export interface LondonBreakoutConfig {
   /** Minimum breakout beyond the Asian range to trigger entry (as fraction of range, default: 0.1) */
   minBreakoutFraction: number;
-  /** Reward:risk ratio for take profit (default: 1.5) */
+  /** Reward:risk ratio for take profit (default: 0 = disabled, exit at session end) */
   rewardRatio: number;
   /** Maximum Asian range as fraction of price — skip if too wide (default: 0.005 = 0.5%) */
   maxRangePct: number;
@@ -39,11 +39,13 @@ export interface LondonBreakoutConfig {
   units: number;
   /** Which pairs to trade (default: USD majors) */
   instruments?: readonly string[];
+  /** Days of week to skip (0=Sun, 5=Fri, etc.) */
+  skipDays?: number[];
 }
 
 const DEFAULT_CONFIG: LondonBreakoutConfig = {
   minBreakoutFraction: 0.1,
-  rewardRatio: 1.5,
+  rewardRatio: 0,
   maxRangePct: 0.005,
   minRangePct: 0.0005,
   units: 10_000,
@@ -118,6 +120,7 @@ export class LondonBreakoutStrategy implements Strategy {
 
     // Skip weekends
     if (dayOfWeek === 0 || dayOfWeek === 6) return;
+    if (this.config.skipDays?.includes(dayOfWeek)) return;
 
     // New day — reset ranges
     if (dateStr !== this.currentDate) {
@@ -187,15 +190,15 @@ export class LondonBreakoutStrategy implements Strategy {
     if (mid > asianHigh + minBreakout) {
       // Breakout above Asian high
       side = "buy";
-      stopLoss = asianLow; // stop at bottom of range
+      stopLoss = asianLow;
       const risk = mid - stopLoss;
-      takeProfit = mid + risk * this.config.rewardRatio;
+      takeProfit = this.config.rewardRatio > 0 ? mid + risk * this.config.rewardRatio : Infinity;
     } else if (mid < asianLow - minBreakout) {
       // Breakout below Asian low
       side = "sell";
-      stopLoss = asianHigh; // stop at top of range
+      stopLoss = asianHigh;
       const risk = stopLoss - mid;
-      takeProfit = mid - risk * this.config.rewardRatio;
+      takeProfit = this.config.rewardRatio > 0 ? mid - risk * this.config.rewardRatio : -Infinity;
     }
 
     if (!side) return;

@@ -104,14 +104,15 @@ function buildStrategy(name: string): Strategy {
     case "london-breakout": {
       const lbConfig: Partial<import("../strategies/london-breakout.js").LondonBreakoutConfig> = {
         minBreakoutFraction: 0.1,
-        rewardRatio: rewardRatio || 1.5,
+        rewardRatio: rewardRatio || 0, // 0 = no TP, exit at session end
         maxRangePct: 0.005,
         minRangePct: 0.0005,
         units: 10_000,
+        instruments: pairsFlag
+          ? pairsFlag.split(",")
+          : ["EUR_USD", "GBP_USD", "USD_CAD", "USD_CHF", "AUD_USD", "NZD_USD"], // exclude USD_JPY
+        skipDays: [5], // skip Fridays
       };
-      if (pairsFlag) {
-        lbConfig.instruments = pairsFlag.split(",");
-      }
       return new LondonBreakoutStrategy(lbConfig);
     }
     case "cross-momentum":
