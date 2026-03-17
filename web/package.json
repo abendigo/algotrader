@@ -21,6 +21,7 @@
 		"vite": "^7.3.1"
 	},
 	"dependencies": {
+		"@node-rs/argon2": "^2.0.2",
 		"lightweight-charts": "^5.1.0"
 	}
 }

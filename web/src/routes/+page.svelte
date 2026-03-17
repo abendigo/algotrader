@@ -1,138 +1,116 @@
 <script lang="ts">
-	let { data } = $props();
 </script>
 
-<div class="dashboard">
-	<h1>Dashboard</h1>
+<div class="landing">
+	<div class="hero">
+		<h1>Algotrader</h1>
+		<p class="tagline">Algorithmic forex trading with backtested strategies</p>
+		<p class="description">
+			Build, backtest, and deploy trading strategies across multiple brokers.
+			Real-time price streaming, historical data analysis, and comprehensive
+			trade reporting.
+		</p>
+		<div class="cta">
+			<a href="/register" class="btn primary">Get Started</a>
+			<a href="/login" class="btn secondary">Log In</a>
+		</div>
+	</div>
 
-	<section class="data-section">
-		<h2>Historical Data</h2>
-		{#each data.data.brokers as broker}
-			<h3 class="broker-name">{broker.name}</h3>
-			<div class="cards">
-				{#each broker.granularities as gran}
-					<div class="card">
-						<div class="card-header">{gran.name}</div>
-						<div class="card-body">
-							<div class="stat">
-								<span class="label">Instruments</span>
-								<span class="value">{gran.instruments}</span>
-							</div>
-							<div class="stat">
-								<span class="label">Days</span>
-								<span class="value">{gran.days}</span>
-							</div>
-							<div class="stat">
-								<span class="label">Range</span>
-								<span class="value">{gran.dateRange.from} to {gran.dateRange.to}</span>
-							</div>
-						</div>
-					</div>
-				{/each}
-			</div>
-		{/each}
-	</section>
-
-	<section class="reports-section">
-		<h2>Recent Backtests</h2>
-		{#if data.reports.length === 0}
-			<p class="muted">No backtest reports found. Run a backtest first.</p>
-		{:else}
-			<table>
-				<thead>
-					<tr>
-						<th>Strategy</th>
-						<th>Granularity</th>
-						<th>Timestamp</th>
-						<th>Actions</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each data.reports.slice(0, 20) as report}
-						<tr>
-							<td>{report.strategy}</td>
-							<td>{report.granularity}</td>
-							<td>{report.timestamp}</td>
-							<td>
-								<a href="/backtests/{report.filename}">View</a>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		{/if}
-	</section>
+	<div class="features">
+		<div class="feature">
+			<h3>Backtesting Engine</h3>
+			<p>Test strategies against years of historical data with realistic spread models, slippage simulation, and time-varying costs.</p>
+		</div>
+		<div class="feature">
+			<h3>Live Trading</h3>
+			<p>Stream real-time prices, monitor positions, and execute trades on OANDA with paper or live accounts.</p>
+		</div>
+		<div class="feature">
+			<h3>Strategy Library</h3>
+			<p>London Breakout, Cross-Currency Lead-Lag, Currency Momentum, Correlation Pairs, and more.</p>
+		</div>
+		<div class="feature">
+			<h3>Trade Reports</h3>
+			<p>Detailed HTML reports with equity curves, trade journals, per-instrument breakdown, and strategy explainers.</p>
+		</div>
+	</div>
 </div>
 
 <style>
-	.dashboard h1 {
-		font-size: 1.4em;
-		margin-bottom: 24px;
+	.landing {
+		max-width: 800px;
+		margin: 0 auto;
 	}
-	h2 {
-		font-size: 1.1em;
+	.hero {
+		text-align: center;
+		padding: 80px 0 60px;
+	}
+	h1 {
+		font-size: 2.8em;
+		color: #58a6ff;
+		margin-bottom: 12px;
+	}
+	.tagline {
+		font-size: 1.2em;
+		color: #c9d1d9;
+		margin-bottom: 16px;
+	}
+	.description {
 		color: #8b949e;
-		border-bottom: 1px solid #21262d;
-		padding-bottom: 6px;
-		margin: 24px 0 12px;
+		font-size: 0.95em;
+		max-width: 500px;
+		margin: 0 auto 32px;
+		line-height: 1.6;
 	}
-	.cards {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+	.cta {
+		display: flex;
 		gap: 12px;
+		justify-content: center;
 	}
-	.card {
+	.btn {
+		padding: 10px 24px;
+		border-radius: 6px;
+		font-weight: 600;
+		font-size: 0.95em;
+		text-decoration: none;
+	}
+	.btn.primary {
+		background: #238636;
+		color: #fff;
+	}
+	.btn.primary:hover {
+		background: #2ea043;
+		text-decoration: none;
+	}
+	.btn.secondary {
+		background: #21262d;
+		color: #c9d1d9;
+		border: 1px solid #30363d;
+	}
+	.btn.secondary:hover {
+		background: #30363d;
+		text-decoration: none;
+	}
+	.features {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 16px;
+		padding-bottom: 60px;
+	}
+	.feature {
 		background: #161b22;
 		border: 1px solid #21262d;
-		border-radius: 6px;
-		overflow: hidden;
+		border-radius: 8px;
+		padding: 20px;
 	}
-	.card-header {
-		background: #1c2128;
-		padding: 8px 16px;
-		font-weight: 600;
-		font-size: 1.1em;
+	.feature h3 {
+		color: #c9d1d9;
+		font-size: 1em;
+		margin-bottom: 8px;
 	}
-	.card-body {
-		padding: 12px 16px;
-	}
-	.stat {
-		display: flex;
-		justify-content: space-between;
-		padding: 4px 0;
-	}
-	.label {
+	.feature p {
 		color: #8b949e;
 		font-size: 0.85em;
-	}
-	.value {
-		font-weight: 500;
-	}
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: 0.9em;
-	}
-	th {
-		text-align: left;
-		padding: 8px 12px;
-		color: #8b949e;
-		border-bottom: 2px solid #21262d;
-	}
-	td {
-		padding: 8px 12px;
-		border-bottom: 1px solid #21262d;
-	}
-	tr:hover td {
-		background: #1c2128;
-	}
-	.broker-name {
-		font-size: 0.95em;
-		color: #58a6ff;
-		margin: 12px 0 8px;
-		text-transform: capitalize;
-	}
-	.muted {
-		color: #8b949e;
+		line-height: 1.5;
 	}
 </style>

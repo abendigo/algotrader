@@ -1,5 +1,5 @@
 <script lang="ts">
-	let { children } = $props();
+	let { children, data } = $props();
 </script>
 
 <svelte:head>
@@ -11,9 +11,16 @@
 		<div class="nav-inner">
 			<a href="/" class="logo">Algotrader</a>
 			<div class="links">
-				<a href="/">Dashboard</a>
-				<a href="/live">Live</a>
-				<a href="/backtests">Backtests</a>
+				{#if data.user}
+					<a href="/dashboard">Dashboard</a>
+					<a href="/live">Live</a>
+					<a href="/backtests">Backtests</a>
+					<span class="user-info">{data.user.email}</span>
+					<a href="/logout" class="logout">Log out</a>
+				{:else}
+					<a href="/login">Log In</a>
+					<a href="/register">Register</a>
+				{/if}
 			</div>
 		</div>
 	</nav>
@@ -61,6 +68,15 @@
 		display: flex;
 		gap: 16px;
 		font-size: 0.9em;
+		align-items: center;
+		margin-left: auto;
+	}
+	.user-info {
+		color: #8b949e;
+		font-size: 0.85em;
+	}
+	.logout {
+		color: #8b949e;
 	}
 	main {
 		max-width: 1200px;
