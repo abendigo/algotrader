@@ -20,6 +20,8 @@ import { LeadLagStrategy } from "../strategies/lead-lag.js";
 import { CrossDriftStrategy } from "../strategies/cross-drift.js";
 import { CurrencyMomentumStrategy } from "../strategies/currency-momentum.js";
 import { SessionDivergenceStrategy } from "../strategies/session-divergence.js";
+import { LondonBreakoutStrategy } from "../strategies/london-breakout.js";
+import { CrossMomentumStrategy } from "../strategies/cross-momentum.js";
 import { runBacktest, printResults } from "./engine.js";
 import { exportHTML } from "./export-html.js";
 import { exportCSV } from "./export-csv.js";
@@ -97,8 +99,29 @@ function buildStrategy(name: string): Strategy {
         cooldownPeriod: 480,             // 8 hour cooldown per instrument
         entryDelay,                      // minutes after session open to wait (0 = immediate)
       });
+    case "london-breakout":
+      return new LondonBreakoutStrategy({
+        minBreakoutFraction: 0.1,
+        rewardRatio: 1.5,
+        maxRangePct: 0.005,
+        minRangePct: 0.0005,
+        units: 10_000,
+      });
+    case "cross-momentum":
+      return new CrossMomentumStrategy({
+        deviationLookback: 60,
+        momentumWindow: 30,
+        momentumThreshold: 0.005,
+        momentumExitFraction: 0.3,
+        maxHold: 360,
+        stopLossPct: 0.003,
+        units: 10_000,
+        maxSpread: 0.0005,
+        spreads: SPREADS,
+        maxPositions: 3,
+      });
     default:
-      console.error(`Unknown strategy: ${name}. Available: lead-lag, cross-drift, currency-momentum, session-divergence`);
+      console.error(`Unknown strategy: ${name}. Available: lead-lag, cross-drift, currency-momentum, session-divergence, london-breakout, cross-momentum`);
       process.exit(1);
   }
 }
