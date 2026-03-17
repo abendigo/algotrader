@@ -342,6 +342,60 @@ export class LondonBreakoutStrategy implements Strategy {
     };
   }
 
+  /** Get current strategy state for display/monitoring */
+  getState(): {
+    date: string;
+    rangesLocked: boolean;
+    asianRanges: { instrument: string; high: number; low: number; range: number }[];
+    openPositions: {
+      instrument: string;
+      side: string;
+      entryPrice: number;
+      stopLoss: number;
+      pnl: number;
+      peakPnl: number;
+      trailingActive: boolean;
+    }[];
+  } {
+    const asianRanges = [];
+    for (const inst of this.instruments) {
+      const high = this.asianHighs.get(inst);
+      const low = this.asianLows.get(inst);
+      if (high && low && high > 0 && low < Infinity) {
+        asianRanges.push({
+          instrument: inst,
+          high,
+          low,
+          range: high - low,
+        });
+      }
+    }
+
+    const openPositions = [];
+    for (const [, pos] of this.positions) {
+      const currentPrice = this.prices.get(pos.instrument) ?? pos.entryPrice;
+      const pnl = pos.side === "buy"
+        ? currentPrice - pos.entryPrice
+        : pos.entryPrice - currentPrice;
+      openPositions.push({
+        instrument: pos.instrument,
+        side: pos.side,
+        entryPrice: pos.entryPrice,
+        stopLoss: pos.stopLoss,
+        pnl,
+        peakPnl: pos.peakPnl,
+        trailingActive: pos.trailingActive,
+      });
+    }
+
+    return {
+      date: this.currentDate,
+      rangesLocked: this.rangesLocked,
+      asianRanges,
+      openPositions,
+    };
+  }
+
   async dispose(): Promise<void> {
     this.prices.clear();
     this.positions.clear();

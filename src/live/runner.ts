@@ -22,6 +22,7 @@ import { writeFileSync, appendFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 
 const LOGS_DIR = join(import.meta.dirname, "../../logs");
+const STATE_FILE = join(LOGS_DIR, "live-state.json");
 const INSTRUMENTS = [
   "EUR_USD", "GBP_USD", "USD_JPY", "USD_CAD", "USD_CHF", "AUD_USD", "NZD_USD",
 ] as const;
@@ -63,6 +64,21 @@ class LiveRunner {
     if (!existsSync(LOGS_DIR)) mkdirSync(LOGS_DIR, { recursive: true });
     const dateStr = new Date().toISOString().slice(0, 10);
     this.logFile = join(LOGS_DIR, `live-${dateStr}.jsonl`);
+  }
+
+  private writeState(timestamp: number): void {
+    try {
+      const strategyState = this.strategy.getState();
+      const state = {
+        timestamp: new Date(timestamp).toISOString(),
+        running: !this.stopping,
+        tickCount: this.tickCount,
+        strategy: strategyState,
+      };
+      writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+    } catch {
+      // Don't crash the runner if state write fails
+    }
   }
 
   private log(entry: LogEntry): void {
@@ -152,6 +168,9 @@ class LiveRunner {
             });
           }
         }
+
+        // Write state file on every tick (lightweight — just overwrites a small JSON)
+        this.writeState(tick.timestamp);
 
         // Periodic status update (every 5 minutes)
         if (tick.timestamp - this.lastStatusTime > 300_000) {
