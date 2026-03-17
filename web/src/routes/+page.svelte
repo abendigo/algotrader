@@ -7,27 +7,30 @@
 
 	<section class="data-section">
 		<h2>Historical Data</h2>
-		<div class="cards">
-			{#each data.data.granularities as gran}
-				<div class="card">
-					<div class="card-header">{gran.name}</div>
-					<div class="card-body">
-						<div class="stat">
-							<span class="label">Instruments</span>
-							<span class="value">{gran.instruments}</span>
-						</div>
-						<div class="stat">
-							<span class="label">Days</span>
-							<span class="value">{gran.days}</span>
-						</div>
-						<div class="stat">
-							<span class="label">Range</span>
-							<span class="value">{gran.dateRange.from} to {gran.dateRange.to}</span>
+		{#each data.data.brokers as broker}
+			<h3 class="broker-name">{broker.name}</h3>
+			<div class="cards">
+				{#each broker.granularities as gran}
+					<div class="card">
+						<div class="card-header">{gran.name}</div>
+						<div class="card-body">
+							<div class="stat">
+								<span class="label">Instruments</span>
+								<span class="value">{gran.instruments}</span>
+							</div>
+							<div class="stat">
+								<span class="label">Days</span>
+								<span class="value">{gran.days}</span>
+							</div>
+							<div class="stat">
+								<span class="label">Range</span>
+								<span class="value">{gran.dateRange.from} to {gran.dateRange.to}</span>
+							</div>
 						</div>
 					</div>
-				</div>
-			{/each}
-		</div>
+				{/each}
+			</div>
+		{/each}
 	</section>
 
 	<section class="reports-section">
@@ -122,6 +125,12 @@
 	}
 	tr:hover td {
 		background: #1c2128;
+	}
+	.broker-name {
+		font-size: 0.95em;
+		color: #58a6ff;
+		margin: 12px 0 8px;
+		text-transform: capitalize;
 	}
 	.muted {
 		color: #8b949e;

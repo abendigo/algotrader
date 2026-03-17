@@ -15,7 +15,7 @@ import { ALL_INSTRUMENTS } from "./instruments.js";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 
-const DATA_DIR = join(import.meta.dirname, "../../data");
+const DATA_DIR = join(import.meta.dirname, "../../data/oanda");
 
 /** OANDA limits candle requests to 5000 per call. Paginate as needed. */
 const MAX_CANDLES_PER_REQUEST = 5000;
