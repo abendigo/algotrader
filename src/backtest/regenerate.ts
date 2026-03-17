@@ -9,7 +9,7 @@
 
 import { readFileSync, writeFileSync, readdirSync, existsSync } from "fs";
 import { join } from "path";
-import { exportHTML } from "./export-html.js";
+import { exportHTML, type ReportMeta } from "./export-html.js";
 import { exportCSV } from "./export-csv.js";
 import type { BacktestResult } from "./types.js";
 import { findUser, getUserReportsDir } from "../core/users.js";
@@ -33,13 +33,20 @@ function regenerate(jsonFile: string): void {
   const jsonPath = join(reportsDir, jsonFile);
   const data = JSON.parse(readFileSync(jsonPath, "utf-8")) as {
     strategyName: string;
+    strategyConfig?: Record<string, unknown>;
+    backtestConfig?: Record<string, unknown>;
+    paramDescriptions?: Record<string, string>;
     result: BacktestResult;
   };
 
   const baseName = jsonFile.replace(".json", "");
 
+  const meta = (data.strategyConfig || data.backtestConfig || data.paramDescriptions)
+    ? { strategyConfig: data.strategyConfig, backtestConfig: data.backtestConfig, paramDescriptions: data.paramDescriptions }
+    : undefined;
+
   const htmlPath = join(reportsDir, `${baseName}.html`);
-  writeFileSync(htmlPath, exportHTML(data.result, data.strategyName));
+  writeFileSync(htmlPath, exportHTML(data.result, data.strategyName, meta));
 
   const csvPath = join(reportsDir, `${baseName}.csv`);
   writeFileSync(csvPath, exportCSV(data.result));

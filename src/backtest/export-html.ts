@@ -1,4 +1,4 @@
-import type { BacktestResult, Trade } from "./types.js";
+import type { BacktestConfig, BacktestResult, Trade } from "./types.js";
 
 function getStrategyExplainer(strategy?: string): string {
   const wrap = (html: string) =>
@@ -125,8 +125,51 @@ function getStrategyExplainer(strategy?: string): string {
   }
 }
 
+export interface ReportMeta {
+  strategyConfig?: Record<string, unknown>;
+  backtestConfig?: Record<string, unknown> | BacktestConfig;
+  paramDescriptions?: Record<string, string>;
+}
+
+function buildConfigSection(meta?: ReportMeta): string {
+  if (!meta) return "";
+
+  const rows: string[] = [];
+
+  const addRow = (key: string, value: unknown) => {
+    if (value === undefined || value === null) return;
+    const desc = meta.paramDescriptions?.[key] ?? "";
+    const displayVal = typeof value === "boolean" ? (value ? "Yes" : "No") :
+      Array.isArray(value) ? value.join(", ") : String(value);
+    rows.push(`<tr><td><strong>${key}</strong></td><td>${displayVal}</td><td class="desc">${desc}</td></tr>`);
+  };
+
+  if (meta.backtestConfig) {
+    for (const [k, v] of Object.entries(meta.backtestConfig)) {
+      if (k === "spread" || k === "granularity") continue; // already shown elsewhere
+      addRow(k, v);
+    }
+  }
+  if (meta.strategyConfig) {
+    for (const [k, v] of Object.entries(meta.strategyConfig)) {
+      addRow(k, v);
+    }
+  }
+
+  if (rows.length === 0) return "";
+
+  return `
+<h2>Configuration</h2>
+<div class="trade-table-wrap" style="max-height:none">
+<table>
+  <thead><tr><th>Parameter</th><th>Value</th><th>Description</th></tr></thead>
+  <tbody>${rows.join("\n")}</tbody>
+</table>
+</div>`;
+}
+
 /** Generate a self-contained HTML report from backtest results */
-export function exportHTML(result: BacktestResult, strategyName?: string): string {
+export function exportHTML(result: BacktestResult, strategyName?: string, meta?: ReportMeta): string {
   const r = result;
   const startDate = new Date(r.startTime).toISOString().slice(0, 16);
   const endDate = new Date(r.endTime).toISOString().slice(0, 16);
@@ -198,6 +241,7 @@ export function exportHTML(result: BacktestResult, strategyName?: string): strin
   .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 0.8em; font-weight: 600; }
   .badge.buy { background: #0d419d; color: #58a6ff; }
   .badge.sell { background: #5d1a1a; color: #f85149; }
+  td.desc { color: #8b949e; font-size: 0.9em; }
 </style>
 </head>
 <body>
@@ -206,6 +250,8 @@ export function exportHTML(result: BacktestResult, strategyName?: string): strin
 <p style="color:#8b949e; font-size:0.9em">${startDate} to ${endDate} &middot; ${r.totalTicks.toLocaleString()} ticks &middot; ${r.config.granularity} data</p>
 
 ${getStrategyExplainer(strategyName)}
+
+${buildConfigSection(meta)}
 
 <h2>Performance Summary</h2>
 <div class="summary">

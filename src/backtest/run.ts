@@ -14,6 +14,7 @@
  */
 
 import { writeFileSync, mkdirSync, existsSync } from "fs";
+import { createHash } from "crypto";
 import { join } from "path";
 import { findUser, getUserReportsDir } from "../core/users.js";
 import { loadStrategy } from "../core/strategy-loader.js";
@@ -138,9 +139,6 @@ async function main() {
     mkdirSync(reportsDir, { recursive: true });
   }
 
-  const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
-  const baseName = `${strategyName}-${granularity}-${ts}`;
-
   const strategyParams: Record<string, unknown> = {
     units,
     entryDelay,
@@ -148,18 +146,43 @@ async function main() {
     instruments: pairsFlag ? pairsFlag.split(",") : undefined,
     trailActivateFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-activate="))?.split("=")[1] ?? "2.0"),
     trailDistanceFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-dist="))?.split("=")[1] ?? "1.0"),
+    ...(stopRangeFraction !== undefined && { stopRangeFraction }),
   };
   // Strip undefined values
   for (const k of Object.keys(strategyParams)) {
     if (strategyParams[k] === undefined) delete strategyParams[k];
   }
 
+  const paramDescriptions: Record<string, string> = {
+    units: "Position size in base currency units per trade",
+    entryDelay: "Minutes to wait after breakout before entering (reduces false breakouts)",
+    rewardRatio: "Risk:reward ratio for take-profit placement (0 = no TP, use session end)",
+    instruments: "Specific currency pairs to trade (empty = all eligible pairs)",
+    trailActivateFraction: "Trailing stop activates after price moves this fraction of the Asian range in profit",
+    trailDistanceFraction: "Trailing stop distance as a fraction of the Asian range",
+    stopRangeFraction: "Stop loss distance as a fraction of the Asian range (0.5 = midpoint, 1.0 = opposite side, >1.0 = beyond range)",
+    spreadMultiplier: "Multiply all spreads by this factor (1.0 = normal, 2.0 = stress test)",
+    slippagePips: "Random adverse slippage in pips added to each fill",
+    executionDelay: "Delay order execution by this many ticks (simulates latency)",
+    timeVaryingSpread: "Use wider spreads at session open, tighter during overlap hours",
+    initialBalance: "Starting account balance in USD",
+  };
+
+  // Build config hash from backtest + strategy params for unique filenames
+  const configForHash = { backtestConfig, strategyParams };
+  const configHash = createHash("sha256")
+    .update(JSON.stringify(configForHash))
+    .digest("hex")
+    .slice(0, 8);
+  const epochMs = Date.now();
+  const baseName = `${strategyName}-${granularity}-${epochMs}-${configHash}`;
+
   const jsonPath = join(reportsDir, `${baseName}.json`);
-  writeFileSync(jsonPath, JSON.stringify({ strategyName, strategyConfig: strategyParams, result }, null, 2));
+  writeFileSync(jsonPath, JSON.stringify({ strategyName, strategyConfig: strategyParams, backtestConfig, paramDescriptions, result }, null, 2));
   console.log(`Result data: ${jsonPath}`);
 
   const htmlPath = join(reportsDir, `${baseName}.html`);
-  writeFileSync(htmlPath, exportHTML(result, strategyName));
+  writeFileSync(htmlPath, exportHTML(result, strategyName, { strategyConfig: strategyParams, backtestConfig, paramDescriptions }));
   console.log(`HTML report: ${htmlPath}`);
 
   const csvPath = join(reportsDir, `${baseName}.csv`);
