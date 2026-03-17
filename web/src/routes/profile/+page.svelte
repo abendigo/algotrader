@@ -19,6 +19,12 @@
 	let showAddAccount = $state(false);
 	let testAccountId = $state("");
 	let testResult = $state("");
+
+	// Filter out accounts already linked
+	const linkedIds = $derived(new Set(data.user?.accounts?.map((a: any) => a.accountId) ?? []));
+	const availableOandaAccounts = $derived(
+		data.oandaAccounts?.filter((a: any) => !linkedIds.has(a.id)) ?? []
+	);
 </script>
 
 <div class="profile-page">
@@ -112,8 +118,35 @@
 			<p class="muted">No accounts linked yet.</p>
 		{/if}
 
+		{#if availableOandaAccounts.length > 0}
+			<div class="discovered">
+				<h3>Discovered OANDA Accounts</h3>
+				<p class="hint">These accounts are accessible with your API key but not yet linked.</p>
+				{#each availableOandaAccounts as oandaAcct}
+					<div class="discovered-account">
+						<span class="mono">{oandaAcct.id}</span>
+						{#if oandaAcct.tags?.length > 0}
+							<span class="tags">{oandaAcct.tags.join(", ")}</span>
+						{/if}
+						<form method="POST" action="?/addAccount" use:enhance={() => { return async ({ update }) => { await update(); await invalidateAll(); }; }}>
+							<input type="hidden" name="accountId" value={oandaAcct.id} />
+							<input type="text" name="label" placeholder="Label" class="inline-input" required />
+							<select name="strategy" class="inline-select">
+								{#each strategies as s}
+									<option value={s.value}>{s.label}</option>
+								{/each}
+							</select>
+							<input type="hidden" name="type" value="practice" />
+							<input type="hidden" name="units" value="100" />
+							<button type="submit" class="btn-primary btn-sm">Link</button>
+						</form>
+					</div>
+				{/each}
+			</div>
+		{/if}
+
 		{#if !showAddAccount}
-			<button class="btn-secondary" onclick={() => showAddAccount = true}>Add Account</button>
+			<button class="btn-secondary" onclick={() => showAddAccount = true}>Add Account Manually</button>
 		{:else}
 			<div class="add-account-form">
 				<h3>Link OANDA Account</h3>
@@ -362,4 +395,36 @@
 		margin-top: 12px;
 	}
 	.muted { color: #8b949e; font-size: 0.9em; }
+	.discovered {
+		background: #161b22;
+		border: 1px solid #21262d;
+		border-radius: 6px;
+		padding: 16px;
+		margin-bottom: 12px;
+	}
+	.discovered h3 { font-size: 0.95em; margin-bottom: 4px; }
+	.discovered-account {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 8px 0;
+		border-bottom: 1px solid #21262d;
+		flex-wrap: wrap;
+	}
+	.discovered-account:last-child { border-bottom: none; }
+	.discovered-account form { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+	.tags { color: #8b949e; font-size: 0.8em; }
+	.inline-input {
+		padding: 4px 8px;
+		width: 140px;
+		font-size: 0.85em;
+	}
+	.inline-select {
+		padding: 4px 8px;
+		font-size: 0.85em;
+	}
+	.btn-sm {
+		padding: 4px 10px;
+		font-size: 0.85em;
+	}
 </style>

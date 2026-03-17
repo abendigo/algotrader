@@ -257,6 +257,18 @@ export function updateAccount(
 
 // --- OANDA API helpers for user accounts ---
 
+export async function listOandaAccounts(
+  apiKey: string,
+): Promise<{ id: string; tags: string[] }[]> {
+  const baseUrl = "https://api-fxpractice.oanda.com";
+  const res = await fetch(`${baseUrl}/v3/accounts`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!res.ok) return [];
+  const data = (await res.json()) as { accounts: { id: string; tags: string[] }[] };
+  return data.accounts;
+}
+
 export async function testConnection(
   apiKey: string,
   accountId: string,

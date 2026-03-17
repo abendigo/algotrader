@@ -7,10 +7,24 @@ import {
   removeAccount,
   updateAccount,
   testConnection,
+  listOandaAccounts,
 } from "$lib/server/auth.js";
 
-export function load({ locals }) {
-  return { user: locals.user };
+export async function load({ locals }) {
+  let oandaAccounts: { id: string; tags: string[] }[] = [];
+
+  if (locals.user) {
+    const { getApiKey: getKey } = await import("$lib/server/auth.js");
+    const apiKey = getKey(locals.user.id);
+    if (apiKey) {
+      oandaAccounts = await listOandaAccounts(apiKey);
+    }
+  }
+
+  return {
+    user: locals.user,
+    oandaAccounts,
+  };
 }
 
 export const actions = {
