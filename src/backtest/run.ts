@@ -110,8 +110,8 @@ function buildStrategy(name: string): Strategy {
         units: 100,
         riskPerTrade: 0,               // fixed sizing
         stopRangeFraction: 1.0,         // stop at opposite side of Asian range
-        trailActivateFraction: 0.5,    // activate trail once PnL > 50% of Asian range
-        trailDistanceFraction: 0.3,    // trail 30% of range behind peak
+        trailActivateFraction: 0,      // disabled — letting winners run to session end is better
+        trailDistanceFraction: 0.3,
         instruments: pairsFlag
           ? pairsFlag.split(",")
           : ["EUR_USD", "GBP_USD", "USD_CAD", "USD_CHF", "AUD_USD", "NZD_USD"],
