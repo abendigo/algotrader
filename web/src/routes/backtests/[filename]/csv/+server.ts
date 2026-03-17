@@ -1,8 +1,9 @@
 import { error } from '@sveltejs/kit';
 import { getReportCsv } from '$lib/server/reports.js';
 
-export function GET({ params }) {
-	const csv = getReportCsv(params.filename);
+export function GET({ params, locals }) {
+	const userId = locals.user?.id ?? '';
+	const csv = getReportCsv(userId, params.filename);
 	if (!csv) throw error(404, 'CSV not found');
 
 	return new Response(csv, {
