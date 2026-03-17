@@ -1,0 +1,59 @@
+[
+  {
+    "id": "lead-lag",
+    "name": "Lead-Lag Mean Reversion",
+    "filename": "lead-lag.ts",
+    "description": "Trades cross-currency pairs back toward their USD-implied fair value. When the actual cross rate deviates from the implied rate (derived from two USD-leg majors), enter against the deviation expecting mean reversion.",
+    "category": "Mean Reversion",
+    "badge": "Experimental",
+    "instruments": "21 cross pairs (EUR_GBP, AUD_CAD, etc.)",
+    "timeframe": "Seconds to minutes",
+    "backtestNote": "PF 0.06–0.15 over 180 days. The signal exists but spread costs overwhelm the small mean-reversion moves. Could work on a zero-commission exchange or with tighter spreads.",
+    "config": {
+      "entryZ": 2.0,
+      "exitZ": 0.5,
+      "lookback": 60,
+      "units": 10000
+    }
+  },
+  {
+    "id": "range-fade",
+    "name": "Range Fade",
+    "filename": "range-fade.ts",
+    "description": "The opposite of a breakout strategy. Waits for price to break the Asian session range and then reverse back inside, entering the fade. Based on the observation that most intraday breakouts are false.",
+    "category": "Mean Reversion",
+    "badge": "Experimental",
+    "instruments": "USD majors (EUR_USD, GBP_USD, etc.)",
+    "timeframe": "Hours (London session)",
+    "backtestNote": "PF 0.68 over 180 days. 51.5% win rate (highest of any strategy tested) but poor risk:reward — when the fade fails and the breakout is real, losses are large. Needs better stop management.",
+    "config": {
+      "breakoutConfirmFraction": 0.1,
+      "takeProfitRangeFraction": 0.8,
+      "stopBeyondExtremeFraction": 0.3,
+      "maxRangePct": 0.004,
+      "minRangePct": 0.0003,
+      "units": 10000
+    }
+  },
+  {
+    "id": "correlation-pairs",
+    "name": "Correlation Pairs",
+    "filename": "correlation-pairs.ts",
+    "description": "Trades the spread between two highly correlated instruments (AUD/USD and NZD/USD, ~95% correlation). When their price ratio diverges beyond 2 standard deviations, bet on convergence. Market-neutral hedged position.",
+    "category": "Statistical Arbitrage",
+    "badge": "Experimental",
+    "instruments": "AUD_USD vs NZD_USD (configurable)",
+    "timeframe": "Hours to days",
+    "backtestNote": "PF 0.42 over 180 days, 2480 trades. The concept is sound but overtrades on M1 data — the z-score threshold fires too often. Needs longer lookback or higher entry threshold.",
+    "config": {
+      "instrumentA": "AUD_USD",
+      "instrumentB": "NZD_USD",
+      "lookback": 1440,
+      "entryZ": 2.0,
+      "exitZ": 0.5,
+      "maxHold": 2880,
+      "stopZ": 3.5,
+      "units": 10000
+    }
+  }
+]

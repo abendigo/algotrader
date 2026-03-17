@@ -14,6 +14,7 @@
 				{#if data.user}
 					<a href="/dashboard">Dashboard</a>
 					<a href="/live">Live</a>
+					<a href="/strategies">Strategies</a>
 					<a href="/backtests">Backtests</a>
 					{#if data.user.role === "admin"}
 						<a href="/admin">Admin</a>
