@@ -15,6 +15,9 @@
 					<a href="/dashboard">Dashboard</a>
 					<a href="/live">Live</a>
 					<a href="/backtests">Backtests</a>
+					{#if data.user.role === "admin"}
+						<a href="/admin">Admin</a>
+					{/if}
 					<a href="/profile" class="user-link">{data.user.email}</a>
 					<a href="/logout" class="logout">Log out</a>
 				{:else}

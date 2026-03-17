@@ -25,5 +25,10 @@ export const handle: Handle = async ({ event, resolve }) => {
     throw redirect(303, "/login");
   }
 
+  // Admin routes require admin role
+  if (event.url.pathname.startsWith("/admin") && user?.role !== "admin") {
+    throw redirect(303, "/dashboard");
+  }
+
   return resolve(event);
 };
