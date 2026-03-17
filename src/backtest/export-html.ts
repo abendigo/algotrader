@@ -33,7 +33,7 @@ export function exportHTML(result: BacktestResult, strategyName?: string): strin
     .join("\n");
 
   const tradeRows = r.trades
-    .map((t, i) => buildTradeRow(t, i + 1))
+    .map((t, i) => buildTradeRow(t, i + 1, strategyName))
     .join("\n");
 
   return `<!DOCTYPE html>
@@ -174,33 +174,75 @@ function sortTable(col) {
 </html>`;
 }
 
-function buildTradeRow(t: Trade, num: number): string {
+function formatEntryReason(es: Trade["entrySignal"], strategy?: string): string {
+  if (!es) return "";
+
+  switch (strategy) {
+    case "london-breakout":
+    case "range-fade":
+      return (
+        `Asian range: ${es.legA}, ${es.legB} (range ${es.deviation.toFixed(3)}% of price). ` +
+        `Breakout at ${es.actualRate.toFixed(5)}`
+      );
+
+    case "correlation-pairs":
+      return (
+        `Spread z-score ${es.zScore.toFixed(2)}. ` +
+        `Ratio ${es.actualRate.toFixed(5)} vs mean ${es.deviationMean.toFixed(5)} (std ${es.deviationStd.toFixed(5)}). ` +
+        `${es.legA}=${es.legAPrice.toFixed(5)}, ${es.legB}=${es.legBPrice.toFixed(5)}`
+      );
+
+    case "session-divergence":
+      return (
+        `Deviation ${es.deviation.toFixed(4)}% (${es.zScore.toFixed(1)}x threshold). ` +
+        `Actual ${es.actualRate.toFixed(5)} vs implied ${es.impliedRate.toFixed(5)}. ` +
+        `Legs: ${es.legA}=${es.legAPrice.toFixed(5)}, ${es.legB}=${es.legBPrice.toFixed(5)}`
+      );
+
+    default:
+      // Generic lead-lag style
+      return (
+        `Z-score ${es.zScore.toFixed(2)}. ` +
+        `Actual ${es.actualRate.toFixed(5)} vs implied ${es.impliedRate.toFixed(5)} ` +
+        `(dev ${es.deviation.toFixed(4)}%). ` +
+        `${es.legA}=${es.legAPrice.toFixed(5)}, ${es.legB}=${es.legBPrice.toFixed(5)}`
+      );
+  }
+}
+
+function formatExitReason(xs: Trade["exitSignal"], es: Trade["entrySignal"], strategy?: string): string {
+  if (!xs) return "";
+
+  switch (strategy) {
+    case "london-breakout":
+    case "range-fade":
+      return `${xs.legB} at ${xs.actualRate.toFixed(5)}. SL was ${xs.legA}`;
+
+    case "correlation-pairs":
+      return (
+        `Spread z-score ${xs.zScore.toFixed(2)}. ` +
+        `Ratio ${xs.actualRate.toFixed(5)}. ` +
+        `${xs.legA}=${xs.legAPrice.toFixed(5)}, ${xs.legB}=${xs.legBPrice.toFixed(5)}`
+      );
+
+    default:
+      return (
+        `Z-score ${xs.zScore.toFixed(2)}. ` +
+        `Deviation ${xs.deviation.toFixed(4)}%. ` +
+        `Price ${xs.actualRate.toFixed(5)}`
+      );
+  }
+}
+
+function buildTradeRow(t: Trade, num: number, strategy?: string): string {
   const entryTime = new Date(t.entryTime).toISOString().slice(0, 19).replace("T", " ");
   const exitTime = new Date(t.exitTime).toISOString().slice(0, 19).replace("T", " ");
   const durationMin = ((t.exitTime - t.entryTime) / 60000).toFixed(0);
   const pnlClass = t.pnl >= 0 ? "pos" : "neg";
   const pnlSign = t.pnl >= 0 ? "+" : "";
 
-  const es = t.entrySignal;
-  const xs = t.exitSignal;
-
-  let entryReason = "";
-  if (es) {
-    const dir = es.zScore > 0 ? "above" : "below";
-    entryReason =
-      `Z-score ${es.zScore.toFixed(2)} exceeded threshold. ` +
-      `Actual ${es.actualRate.toFixed(5)} is ${dir} implied ${es.impliedRate.toFixed(5)} ` +
-      `(dev ${es.deviation.toFixed(4)}%, mean ${es.deviationMean.toFixed(4)}%, std ${es.deviationStd.toFixed(4)}%). ` +
-      `Legs: ${es.legA}=${es.legAPrice.toFixed(5)}, ${es.legB}=${es.legBPrice.toFixed(5)}`;
-  }
-
-  let exitReason = "";
-  if (xs) {
-    exitReason =
-      `Z-score reverted to ${xs.zScore.toFixed(2)}. ` +
-      `Deviation narrowed to ${xs.deviation.toFixed(4)}% (from ${es?.deviation.toFixed(4) ?? "?"}%). ` +
-      `Actual ${xs.actualRate.toFixed(5)} vs implied ${xs.impliedRate.toFixed(5)}`;
-  }
+  const entryReason = formatEntryReason(t.entrySignal, strategy);
+  const exitReason = formatExitReason(t.exitSignal, t.entrySignal, strategy);
 
   return `<tr data-inst="${t.instrument}" data-side="${t.side}" data-pnl="${t.pnl.toFixed(2)}">
     <td data-sort="${num}">${num}</td>
