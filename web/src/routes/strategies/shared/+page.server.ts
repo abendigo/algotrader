@@ -6,7 +6,7 @@ export async function load({ locals }) {
   const userId = locals.user?.id ?? "";
   const all = listAllStrategies(userId);
   const userIds = new Set(all.filter((s) => s.source === "user").map((s) => s.id));
-  const shared = all.filter((s) => s.source === "shared");
+  const shared = all.filter((s) => s.source === "shared" || s.source === "builtin");
 
   return {
     strategies: shared.map((s) => ({

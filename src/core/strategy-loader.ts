@@ -1,12 +1,13 @@
 /**
  * Dynamic strategy loader.
  *
- * Loads a strategy from the user's directory if present, otherwise falls back
- * to the shared strategies in data/shared/strategies/. Uses dynamic import() so
- * strategy files are resolved at runtime — no static switch statement needed.
+ * Three-tier strategy resolution:
+ *   1. User strategies   — data/users/{userId}/strategies/ (private, in data volume)
+ *   2. Shared strategies — data/shared/strategies/ (public, in data volume)
+ *   3. Builtin strategies — src/strategies/ (shipped with the app image, read-only)
  *
- * Strategy files must use #-prefixed subpath imports (e.g., #core/strategy.js)
- * so they resolve correctly regardless of their location on disk.
+ * Uses dynamic import() so strategy files are resolved at runtime.
+ * Strategy files must use #-prefixed subpath imports (e.g., #core/strategy.js).
  */
 
 import { existsSync, readdirSync, readFileSync } from "fs";
@@ -35,18 +36,20 @@ export interface StrategyMeta {
   description?: string;
   configFields?: ConfigFields;
   recovery?: RecoveryConfig;
-  source: "user" | "shared";
+  source: "user" | "shared" | "builtin";
 }
 
 const DATA_DIR = resolve(import.meta.dirname, "../../data");
 const SHARED_STRATEGIES_DIR = join(DATA_DIR, "shared/strategies");
+const BUILTIN_STRATEGIES_DIR = resolve(import.meta.dirname, "../strategies");
 
 /**
  * Dynamically load and instantiate a strategy.
  *
  * Resolution order:
- *   1. data/users/{userId}/strategies/{strategyName}.ts
- *   2. data/shared/strategies/{strategyName}.ts
+ *   1. data/users/{userId}/strategies/{strategyName}.ts (user private)
+ *   2. data/shared/strategies/{strategyName}.ts (shared, data volume)
+ *   3. src/strategies/{strategyName}.ts (builtin, shipped with image)
  *
  * The loaded module is expected to export a class whose name ends with
  * "Strategy" (e.g., LeadLagStrategy). That class is instantiated with
@@ -58,16 +61,19 @@ export async function loadStrategy(
   config: Record<string, unknown>,
 ): Promise<Strategy> {
   const userFile = join(DATA_DIR, "users", userId, "strategies", `${strategyName}.ts`);
-  const builtinFile = join(SHARED_STRATEGIES_DIR, `${strategyName}.ts`);
+  const sharedFile = join(SHARED_STRATEGIES_DIR, `${strategyName}.ts`);
+  const builtinFile = join(BUILTIN_STRATEGIES_DIR, `${strategyName}.ts`);
 
   let filePath: string;
   if (existsSync(userFile)) {
     filePath = userFile;
+  } else if (existsSync(sharedFile)) {
+    filePath = sharedFile;
   } else if (existsSync(builtinFile)) {
     filePath = builtinFile;
   } else {
     throw new Error(
-      `Strategy "${strategyName}" not found. Checked:\n  ${userFile}\n  ${builtinFile}`,
+      `Strategy "${strategyName}" not found. Checked:\n  ${userFile}\n  ${sharedFile}\n  ${builtinFile}`,
     );
   }
 
@@ -94,7 +100,7 @@ export async function loadStrategy(
  * The strategyMeta export is a plain object literal with no dependencies,
  * so we can safely evaluate it in isolation.
  */
-function extractMeta(filePath: string, id: string, source: "user" | "shared"): StrategyMeta {
+function extractMeta(filePath: string, id: string, source: StrategyMeta["source"]): StrategyMeta {
   const src = readFileSync(filePath, "utf-8");
 
   // Find "export const strategyMeta = { ... };" — match the outermost braces
@@ -143,12 +149,12 @@ function extractMeta(filePath: string, id: string, source: "user" | "shared"): S
   }
 }
 
-/** List all strategies available to a user (user-owned + shared). */
+/** List all strategies available to a user (user > shared > builtin). */
 export function listStrategies(userId: string): StrategyMeta[] {
   const results: StrategyMeta[] = [];
   const seen = new Set<string>();
 
-  // User strategies first (take priority)
+  // 1. User strategies (highest priority)
   const userDir = join(DATA_DIR, "users", userId, "strategies");
   if (existsSync(userDir)) {
     for (const f of readdirSync(userDir).filter((f) => f.endsWith(".ts"))) {
@@ -158,12 +164,22 @@ export function listStrategies(userId: string): StrategyMeta[] {
     }
   }
 
-  // Shared strategies (skip if user has their own version)
+  // 2. Shared strategies (data volume — skip if user has their own version)
   if (existsSync(SHARED_STRATEGIES_DIR)) {
     for (const f of readdirSync(SHARED_STRATEGIES_DIR).filter((f) => f.endsWith(".ts"))) {
       const id = f.replace(".ts", "");
       if (seen.has(id)) continue;
       results.push(extractMeta(join(SHARED_STRATEGIES_DIR, f), id, "shared"));
+      seen.add(id);
+    }
+  }
+
+  // 3. Builtin strategies (shipped with image — skip if already found)
+  if (existsSync(BUILTIN_STRATEGIES_DIR)) {
+    for (const f of readdirSync(BUILTIN_STRATEGIES_DIR).filter((f) => f.endsWith(".ts"))) {
+      const id = f.replace(".ts", "");
+      if (seen.has(id)) continue;
+      results.push(extractMeta(join(BUILTIN_STRATEGIES_DIR, f), id, "builtin"));
     }
   }
 

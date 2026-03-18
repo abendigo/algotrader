@@ -22,7 +22,7 @@
   "imports": {
     "#core/*": "./src/core/*",
     "#backtest/*": "./src/backtest/*",
-    "#strategies/*": "./data/shared/strategies/*",
+    "#strategies/*": "./src/strategies/*",
     "#data/*": "./src/data/*",
     "#brokers/*": "./src/brokers/*"
   },
