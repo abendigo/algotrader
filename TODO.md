@@ -19,6 +19,22 @@
 - [ ] Docker deployment: ensure service discovery works across containers (may need host/port config instead of localhost)
 - [ ] Consider per-session log files vs current shared-log-with-tagging approach if log files get large
 
+## Docker Deployment
+- [ ] Multi-stage Dockerfile (one image, two entrypoints: web app + live service)
+- [ ] docker-compose with web container, shared data volume, Docker socket mount
+- [ ] Web app manages live service containers via Docker API (create/start/stop)
+- [ ] Service discovery via Docker network hostnames + fixed port (no discovery files)
+- [ ] Remove `caffeinate` usage in processes.ts, replace with Docker API calls
+- [ ] Docker socket proxy (tecnativa/docker-socket-proxy) for restricted API access
+- [ ] GitHub Action to build and push image to registry
+
+### Backtest container strategy
+Currently backtests run as child processes in the web container. This is fine for now.
+If backtests start competing for CPU with the web server, consider these upgrades:
+- **Option A (current):** Keep in web container — simple, no networking, fast for short backtests
+- **Option B:** Spin up a container per backtest — clean isolation, but container startup overhead for short runs
+- **Option C:** Dedicated backtest worker container — always-running, accepts jobs via HTTP, can queue/parallelize. Best for multi-user scenarios.
+
 ## Strategy Docs
 - [ ] Run `npm run gen-docs` as a pre-build step (or git pre-commit hook) so docs never go stale
 - [ ] Add more example strategies to `src/docs/examples/` for the docs page
