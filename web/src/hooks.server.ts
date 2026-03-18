@@ -1,7 +1,7 @@
 import { redirect, type Handle } from "@sveltejs/kit";
 import { validateSession } from "$lib/server/auth.js";
 
-const PUBLIC_PATHS = ["/", "/login", "/register", "/logout"];
+const PUBLIC_PATHS = ["/", "/login", "/register", "/logout", "/docs"];
 
 export const handle: Handle = async ({ event, resolve }) => {
   const token = event.cookies.get("session");
@@ -17,8 +17,8 @@ export const handle: Handle = async ({ event, resolve }) => {
     : null;
 
   const isPublic = PUBLIC_PATHS.some(
-    (p) => event.url.pathname === p || event.url.pathname.startsWith("/api/auth/"),
-  );
+    (p) => event.url.pathname === p || event.url.pathname.startsWith(p + "/"),
+  ) || event.url.pathname.startsWith("/api/auth/");
 
   if (!isPublic && !user) {
     throw redirect(303, "/login");

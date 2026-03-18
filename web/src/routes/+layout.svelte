@@ -16,12 +16,14 @@
 					<a href="/live">Live</a>
 					<a href="/strategies">Strategies</a>
 					<a href="/backtests">Backtests</a>
+					<a href="/docs/strategies">Docs</a>
 					{#if data.user.role === "admin"}
 						<a href="/admin">Admin</a>
 					{/if}
 					<a href="/profile" class="user-link">{data.user.email}</a>
 					<a href="/logout" class="logout" data-sveltekit-reload>Log out</a>
 				{:else}
+					<a href="/docs/strategies">Docs</a>
 					<a href="/login">Log In</a>
 					<a href="/register">Register</a>
 				{/if}
