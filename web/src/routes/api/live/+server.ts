@@ -112,6 +112,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
   if (type === "log") {
     if (!accountId) return json({ error: "account param required" }, { status: 400 });
 
+    const sessionIdFilter = url.searchParams.get("sessionId");
     const dateStr = new Date().toISOString().slice(0, 10);
     const logFile = join(getUserLiveDir(user.id), accountId, `${dateStr}.jsonl`);
     if (!existsSync(logFile)) return json([]);
@@ -121,9 +122,15 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       try { return JSON.parse(l); } catch { return null; }
     }).filter(Boolean);
 
-    const trades = entries.filter(
+    let trades = entries.filter(
       (e: any) => e.type === "start" || e.type === "trade" || e.type === "exit" || e.type === "stop" || e.type === "status"
     );
+
+    // Filter to specific session if requested
+    if (sessionIdFilter) {
+      trades = trades.filter((e: any) => e.sessionId === sessionIdFilter);
+    }
+
     return json(trades);
   }
 

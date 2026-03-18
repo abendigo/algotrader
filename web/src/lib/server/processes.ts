@@ -123,6 +123,23 @@ export async function stopLive(
   }
 }
 
+export async function stopLiveBySessionId(
+  userId: string,
+  sessionId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const client = await getServiceClient(userId);
+  if (!client) {
+    return { success: false, error: "No live trading service running" };
+  }
+
+  try {
+    const result = await client.stopSession(sessionId);
+    return { success: result.ok, error: result.error };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 export async function discoverSessions(userId: string): Promise<SessionFile[]> {
   // Try service client first
   const client = await getServiceClient(userId);

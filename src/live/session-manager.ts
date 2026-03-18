@@ -79,6 +79,8 @@ interface LogEntry {
   timestamp: string;
   type: "start" | "tick" | "trade" | "exit" | "error" | "stop" | "status" | "recovery";
   message: string;
+  sessionId?: string;
+  strategy?: string;
   data?: Record<string, unknown>;
 }
 
@@ -666,6 +668,8 @@ export class SessionManager {
   }
 
   private log(session: LiveSession, entry: LogEntry): void {
+    entry.sessionId = session.sessionId;
+    entry.strategy = session.strategyName;
     const line = JSON.stringify(entry);
     appendFileSync(session.logFile, line + "\n");
 

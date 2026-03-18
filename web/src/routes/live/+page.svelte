@@ -32,6 +32,8 @@
 		tickCount?: number;
 		timestamp?: string;
 		strategyName?: string;
+		sessionId?: string;
+		sessionStatus?: string;
 		strategy?: StrategyState;
 		tradeLog?: TradeLog[];
 	}
@@ -56,11 +58,13 @@
 				if (!res.ok) return;
 				const allSessions: Session[] = await res.json();
 
-				// Fetch trade logs for each session
+				// Fetch trade logs for each session (filtered by sessionId if available)
 				await Promise.all(
 					allSessions.map(async (s) => {
 						try {
-							const logRes = await fetch(`/api/live?type=log&account=${s.accountId}`);
+							let logUrl = `/api/live?type=log&account=${s.accountId}`;
+							if (s.sessionId) logUrl += `&sessionId=${s.sessionId}`;
+							const logRes = await fetch(logUrl);
 							if (logRes.ok) s.tradeLog = await logRes.json();
 						} catch { /* ignore */ }
 					})
@@ -79,17 +83,17 @@
 		if (sessionPollInterval) clearInterval(sessionPollInterval);
 	});
 
-	let stoppingAccounts = $state<Set<string>>(new Set());
+	let stoppingSessions = $state<Set<string>>(new Set());
 
-	async function stopSession(accountId: string) {
-		stoppingAccounts.add(accountId);
-		stoppingAccounts = new Set(stoppingAccounts);
+	async function stopSession(sessionId: string) {
+		stoppingSessions.add(sessionId);
+		stoppingSessions = new Set(stoppingSessions);
 
 		try {
 			await fetch("/api/live/stop", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ accountId }),
+				body: JSON.stringify({ sessionId }),
 			});
 		} catch {
 			// ignore
@@ -131,10 +135,10 @@
 						{#if session.managed}
 							<button
 								class="btn-stop"
-								onclick={() => stopSession(session.accountId)}
-								disabled={stoppingAccounts.has(session.accountId)}
+								onclick={() => stopSession(session.sessionId!)}
+								disabled={stoppingSessions.has(session.sessionId ?? "")}
 							>
-								{stoppingAccounts.has(session.accountId) ? "Stopping..." : "Stop"}
+								{stoppingSessions.has(session.sessionId ?? "") ? "Stopping..." : "Stop"}
 							</button>
 						{/if}
 					{:else if session.stale}
