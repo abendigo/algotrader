@@ -55,4 +55,4 @@ ENV PORT=3000
 ENV DATA_DIR=/app/data
 ENV PROJECT_ROOT=/app
 EXPOSE 3000
-CMD ["sh", "-c", "cp -rn ./data-defaults/shared ./data/shared 2>/dev/null; node web/build/index.js"]
+CMD ["sh", "-c", "cp -r ./data-defaults/shared/ ./data/shared/ 2>/dev/null; node web/build/index.js"]
