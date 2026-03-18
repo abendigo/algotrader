@@ -235,4 +235,8 @@ async function main() {
   await collect({ apiKey, granularity, from, to });
 }
 
-main().catch(console.error);
+// Only run CLI when executed directly (not when imported by the web app)
+const isDirectRun = process.argv[1]?.endsWith("collect.ts") || process.argv[1]?.endsWith("collect.js");
+if (isDirectRun) {
+  main().catch(console.error);
+}
