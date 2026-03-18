@@ -5,6 +5,10 @@
  * OANDA streaming connection. The web app communicates with the service via HTTP.
  * If no service is running, one is spawned automatically.
  *
+ * Supports two modes:
+ *   - Local (default): spawns service as a child process
+ *   - Docker (DOCKER_MODE=true): creates a container via Docker API
+ *
  * Backtests remain in-memory managed (they're short-lived).
  */
 
@@ -13,6 +17,10 @@ import { join } from "path";
 import { readFileSync, existsSync, readdirSync, writeFileSync, unlinkSync } from "fs";
 import { ServiceClient, getServiceClient, readServiceDiscovery } from "../../../../src/live/service-client.js";
 import type { SessionFile } from "../../../../src/live/session-manager.js";
+import {
+  isDockerMode, startContainer, isContainerRunning,
+  getContainerHostname, getLivePort,
+} from "./docker.js";
 
 const PROJECT_ROOT = join(import.meta.dirname, "../../../..");
 const DATA_DIR = join(PROJECT_ROOT, "data");
@@ -36,11 +44,50 @@ export interface LiveConfig {
 }
 
 /**
+ * Get a ServiceClient for a user in Docker mode.
+ * Uses container hostname instead of discovery file.
+ */
+async function getDockerServiceClient(userId: string): Promise<ServiceClient | null> {
+  const running = await isContainerRunning(userId);
+  if (!running) return null;
+
+  const client = new ServiceClient(getLivePort(), getContainerHostname(userId));
+  const alive = await client.isAlive();
+  return alive ? client : null;
+}
+
+/**
  * Get or spawn a service for a user.
  * Returns a ServiceClient ready to use, or null on failure.
  */
 async function ensureService(userId: string, userEmail: string): Promise<ServiceClient | null> {
-  // Check for existing service
+  if (isDockerMode()) {
+    return ensureServiceDocker(userId, userEmail);
+  }
+  return ensureServiceLocal(userId, userEmail);
+}
+
+async function ensureServiceDocker(userId: string, userEmail: string): Promise<ServiceClient | null> {
+  // Check if container is already running
+  let client = await getDockerServiceClient(userId);
+  if (client) return client;
+
+  // Start a new container
+  const started = await startContainer(userId, userEmail);
+  if (!started) return null;
+
+  // Poll for service to be ready (max 5s)
+  for (let i = 0; i < 25; i++) {
+    await new Promise((r) => setTimeout(r, 200));
+    client = await getDockerServiceClient(userId);
+    if (client) return client;
+  }
+
+  return null;
+}
+
+async function ensureServiceLocal(userId: string, userEmail: string): Promise<ServiceClient | null> {
+  // Check for existing service via discovery file
   let client = await getServiceClient(userId);
   if (client) return client;
 
@@ -50,7 +97,7 @@ async function ensureService(userId: string, userEmail: string): Promise<Service
     `--user=${userEmail}`,
   ];
 
-  const child = spawn("caffeinate", ["-i", TSX, ...serviceArgs], {
+  const child = spawn(TSX, serviceArgs, {
     cwd: PROJECT_ROOT,
     stdio: ["ignore", "pipe", "pipe"],
     detached: true,
@@ -99,11 +146,21 @@ export async function startLive(
   }
 }
 
+/**
+ * Get a service client for the user, handling both Docker and local modes.
+ */
+async function getClient(userId: string): Promise<ServiceClient | null> {
+  if (isDockerMode()) {
+    return getDockerServiceClient(userId);
+  }
+  return getServiceClient(userId);
+}
+
 export async function stopLive(
   userId: string,
   accountId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const client = await getServiceClient(userId);
+  const client = await getClient(userId);
   if (!client) {
     return { success: false, error: "No live trading service running" };
   }
@@ -127,7 +184,7 @@ export async function stopLiveBySessionId(
   userId: string,
   sessionId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const client = await getServiceClient(userId);
+  const client = await getClient(userId);
   if (!client) {
     return { success: false, error: "No live trading service running" };
   }
@@ -142,7 +199,7 @@ export async function stopLiveBySessionId(
 
 export async function discoverSessions(userId: string): Promise<SessionFile[]> {
   // Try service client first
-  const client = await getServiceClient(userId);
+  const client = await getClient(userId);
   if (client) {
     try {
       return await client.getSessions();

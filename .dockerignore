@@ -1,0 +1,13 @@
+node_modules/
+web/node_modules/
+web/.svelte-kit/
+web/build/
+dist/
+data/brokers/
+data/users/
+data/users.json
+reports/
+logs/
+.env
+*.local
+.git/

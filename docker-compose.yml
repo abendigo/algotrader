@@ -1,0 +1,16 @@
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - PORT=3000
+      - DOCKER_MODE=true
+      - DOCKER_NETWORK=${COMPOSE_PROJECT_NAME:-algotrader}_default
+      - LIVE_IMAGE=${LIVE_IMAGE:-algotrader:latest}
+      - LIVE_PORT=9400
+      - DATA_VOLUME=${DATA_VOLUME:-./data}
+    restart: unless-stopped

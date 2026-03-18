@@ -19,8 +19,8 @@ export interface ServiceDiscovery {
 export class ServiceClient {
   private baseUrl: string;
 
-  constructor(port: number) {
-    this.baseUrl = `http://127.0.0.1:${port}`;
+  constructor(port: number, hostname = "127.0.0.1") {
+    this.baseUrl = `http://${hostname}:${port}`;
   }
 
   async startSession(
