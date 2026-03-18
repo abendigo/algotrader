@@ -39,13 +39,15 @@ COPY tsconfig.json ./
 # Copy built web app
 COPY --from=build /app/web/build ./web/build
 
-# Copy shared strategies
-COPY data/shared/ ./data/shared/
+# Copy shared strategies into a staging location
+# (they get copied to the data volume at startup if missing)
+COPY data/shared/ ./data-defaults/shared/
 
 # Data volume mount point
 VOLUME /app/data
 
 # Default entrypoint: web app
+# The startup script ensures data/shared exists and starts the node server
 ENV PORT=3000
 EXPOSE 3000
-CMD ["node", "web/build"]
+CMD ["sh", "-c", "cp -rn ./data-defaults/shared ./data/shared 2>/dev/null; node web/build/index.js"]

@@ -1,16 +1,18 @@
 services:
   web:
-    build: .
+    image: ${LIVE_IMAGE:-ghcr.io/your-org/algotrader:latest}
+    ports:
+      - "3000:3000"
     volumes:
-      - ./data:/app/data
+      - algotrader-data:/app/data
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - PORT=3000
       - DOCKER_MODE=true
       - DOCKER_NETWORK=${COMPOSE_PROJECT_NAME:-algotrader}_default
-      - LIVE_IMAGE=${LIVE_IMAGE:-algotrader:latest}
+      - LIVE_IMAGE=${LIVE_IMAGE:-ghcr.io/your-org/algotrader:latest}
       - LIVE_PORT=9400
-      - DATA_VOLUME=${DATA_VOLUME:-./data}
+      - DATA_VOLUME=algotrader-data
     labels:
       - traefik.enable=true
       - traefik.http.routers.algotrader.rule=Host(`algotrader.markos.games`)
@@ -21,6 +23,9 @@ services:
       - traefik
       - default
     restart: unless-stopped
+
+volumes:
+  algotrader-data:
 
 networks:
   traefik:

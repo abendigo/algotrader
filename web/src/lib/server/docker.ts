@@ -136,10 +136,12 @@ export async function stopContainer(userId: string): Promise<boolean> {
 }
 
 /**
- * Host-side path for the data volume, passed via DATA_VOLUME env var from docker-compose.
+ * Data volume name or host path, passed via DATA_VOLUME env var from docker-compose.
+ * For named volumes, Docker expects just the volume name (e.g., "algotrader-data").
+ * For bind mounts, it's a host path (e.g., "/srv/algotrader/data").
  */
 function getDataVolume(): string {
-  return process.env.DATA_VOLUME ?? "/app/data";
+  return process.env.DATA_VOLUME ?? "algotrader-data";
 }
 
 /**
