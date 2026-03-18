@@ -4,6 +4,7 @@
 
 	let { data, form } = $props();
 	let stoppingService = $state<string | null>(null);
+	let collecting = $state<Record<string, string>>({});
 
 	// Auto-refresh services every 5 seconds
 	let servicesData = $state(data.services);
@@ -25,6 +26,31 @@
 		const m = Math.floor((sec % 3600) / 60);
 		if (h > 0) return `${h}h ${m}m`;
 		return `${m}m`;
+	}
+
+	async function collectData(granularity: string, direction: "latest" | "previous") {
+		const key = `${granularity}-${direction}`;
+		collecting[key] = "running";
+		collecting = { ...collecting };
+
+		try {
+			const res = await fetch("/api/admin/collect", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ granularity, direction }),
+			});
+			const result = await res.json();
+			if (result.ok) {
+				collecting[key] = `${result.fetched} fetched (${result.range.from} to ${result.range.to})`;
+			} else {
+				collecting[key] = `Error: ${result.error}`;
+			}
+		} catch (err) {
+			collecting[key] = "Failed";
+		}
+		collecting = { ...collecting };
+		// Refresh data summary
+		await invalidateAll();
 	}
 
 	async function stopService(userId: string) {
@@ -151,6 +177,29 @@
 	</section>
 
 	<section>
+		<h2>System API Key</h2>
+		<p class="section-desc">OANDA API key used for data collection. Not tied to any user account.</p>
+		<div class="disk-info">
+			<div class="stat-row">
+				<span class="label">Status</span>
+				<span class="value">
+					{#if data.hasSystemApiKey}
+						<span class="status-set">Configured</span>
+					{:else}
+						<span class="status-unset">Not set</span>
+					{/if}
+				</span>
+			</div>
+		</div>
+		<form method="POST" action="?/setApiKey" use:enhance={() => { return async ({ update }) => { await update(); await invalidateAll(); }; }}>
+			<div class="api-key-form">
+				<input type="password" name="apiKey" placeholder="OANDA API key" class="input-key" />
+				<button type="submit" class="btn-sm btn-promote">Save</button>
+			</div>
+		</form>
+	</section>
+
+	<section>
 		<h2>Historical Data</h2>
 		<div class="disk-info">
 			<div class="stat-row">
@@ -176,15 +225,34 @@
 						<th>Instruments</th>
 						<th>Days</th>
 						<th>Date Range</th>
+						<th></th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each broker.granularities as gran}
+						{@const latestKey = `${gran.name}-latest`}
+						{@const prevKey = `${gran.name}-previous`}
 						<tr class:no-data={gran.instruments === 0}>
 							<td class="mono">{gran.name}</td>
 							<td>{gran.instruments || "—"}</td>
 							<td>{gran.days || "—"}</td>
 							<td class="date">{gran.dateRange.from ? `${gran.dateRange.from} to ${gran.dateRange.to}` : "—"}</td>
+							<td class="collect-actions">
+								{#if collecting[latestKey] === "running" || collecting[prevKey] === "running"}
+									<span class="collecting">Collecting...</span>
+								{:else if collecting[latestKey] && collecting[latestKey] !== "running"}
+									<span class="collect-result">{collecting[latestKey]}</span>
+								{:else if collecting[prevKey] && collecting[prevKey] !== "running"}
+									<span class="collect-result">{collecting[prevKey]}</span>
+								{:else if data.hasSystemApiKey}
+									<button class="btn-sm btn-collect" onclick={() => collectData(gran.name, "latest")}>
+										Fetch Latest
+									</button>
+									<button class="btn-sm btn-collect" onclick={() => collectData(gran.name, "previous")}>
+										Fetch Previous
+									</button>
+								{/if}
+							</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -319,4 +387,40 @@
 		color: #f85149;
 		border-color: #f85149;
 	}
+	.section-desc {
+		color: #8b949e;
+		font-size: 0.85em;
+		margin: 0 0 8px;
+	}
+	.api-key-form {
+		display: flex;
+		gap: 8px;
+		align-items: center;
+		margin-top: 8px;
+	}
+	.input-key {
+		flex: 1;
+		padding: 6px 10px;
+		background: #0d1117;
+		border: 1px solid #30363d;
+		border-radius: 4px;
+		color: #c9d1d9;
+		font-size: 0.85em;
+		font-family: monospace;
+	}
+	.input-key:focus { outline: none; border-color: #58a6ff; }
+	.collect-actions {
+		display: flex;
+		gap: 4px;
+		align-items: center;
+	}
+	.btn-collect {
+		background: transparent;
+		color: #58a6ff;
+		border-color: #30363d;
+		white-space: nowrap;
+	}
+	.btn-collect:hover { border-color: #58a6ff; }
+	.collecting { color: #d29922; font-size: 0.8em; }
+	.collect-result { color: #8b949e; font-size: 0.75em; }
 </style>

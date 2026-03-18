@@ -3,6 +3,7 @@ import { readFileSync, existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { getDataSummary } from "$lib/server/data.js";
 import { ServiceClient, readServiceDiscovery } from "../../../../src/live/service-client.js";
+import { hasSystemApiKey, setSystemApiKey, getSystemApiKey } from "$lib/server/system-config.js";
 
 import { DATA_DIR } from "$lib/server/paths.js";
 
@@ -110,10 +111,21 @@ export async function load() {
     data: getDataSummary(),
     disk: getDataDiskUsage(),
     services: await discoverServices(),
+    hasSystemApiKey: hasSystemApiKey(),
   };
 }
 
 export const actions = {
+  setApiKey: async ({ request }) => {
+    const formData = await request.formData();
+    const apiKey = formData.get("apiKey")?.toString() ?? "";
+
+    if (!apiKey) return fail(400, { error: "API key is required" });
+
+    setSystemApiKey(apiKey);
+    return { success: true, message: "System API key saved" };
+  },
+
   setRole: async ({ request }) => {
     const formData = await request.formData();
     const userId = formData.get("userId")?.toString() ?? "";
