@@ -1,3 +1,17 @@
+<script lang="ts">
+	let { data } = $props();
+	const d = data.docs;
+
+	// Helper: get interface info
+	function iface(name: string) { return d.interfaces[name]; }
+	function snippet(name: string) { return d.snippets[name] ?? ""; }
+
+	// Filter broker members to the ones strategies typically use (exclude streamPrices, name)
+	const brokerMethods = (iface("Broker")?.members ?? []).filter(
+		(m: any) => !["name", "streamPrices", "getCandlesByRange"].includes(m.name)
+	);
+</script>
+
 <div class="docs">
 	<h1>Writing a Strategy</h1>
 	<p class="subtitle">
@@ -17,6 +31,7 @@
 			<li><a href="#live-monitoring">Live Monitoring (getState)</a></li>
 			<li><a href="#available-imports">Available Imports</a></li>
 			<li><a href="#backtest-compatibility">Backtest Compatibility</a></li>
+			<li><a href="#live-recovery">Live Recovery</a></li>
 			<li><a href="#tips">Tips</a></li>
 		</ol>
 	</nav>
@@ -46,100 +61,30 @@
 	<section id="minimal-example">
 		<h2>Minimal Example</h2>
 		<p>A complete strategy that buys EUR/USD when the spread narrows below a threshold:</p>
-		<pre><code>{`import type { Strategy, StrategyContext, StrategyStateSnapshot } from "#core/strategy.js";
-import type { Tick } from "#core/types.js";
-
-export const strategyMeta = {
-  name: "Simple Spread",
-  description: "Buys EUR/USD when spread is tight, sells when it widens.",
-  configFields: {
-    common: {
-      spreadThreshold: {
-        label: "Max spread (pips)", type: "number" as const,
-        default: 1.5, min: 0, step: 0.1,
-      },
-    },
-    backtest: {},
-    live: {
-      units: { label: "Units", type: "number" as const, default: 1000, min: 1 },
-    },
-  },
-};
-
-interface Config {
-  spreadThreshold: number;
-  units: number;
-}
-
-const DEFAULTS: Config = { spreadThreshold: 1.5, units: 1000 };
-
-export class SimpleSpreadStrategy implements Strategy {
-  readonly name = "simple-spread";
-  readonly hedging = "forbidden" as const;
-  readonly instruments = ["EUR_USD"] as const;
-
-  private config: Config;
-  private inPosition = false;
-
-  constructor(cfg: Record<string, unknown>) {
-    this.config = {
-      spreadThreshold: (cfg.spreadThreshold as number) ?? DEFAULTS.spreadThreshold,
-      units: (cfg.units as number) ?? DEFAULTS.units,
-    };
-  }
-
-  async init() {}
-
-  async onTick(ctx: StrategyContext, tick: Tick) {
-    if (tick.instrument !== "EUR_USD") return;
-
-    const spread = (tick.ask - tick.bid) * 10_000; // convert to pips
-
-    if (!this.inPosition && spread < this.config.spreadThreshold) {
-      await ctx.broker.submitOrder({
-        instrument: "EUR_USD",
-        side: "buy",
-        type: "market",
-        units: this.config.units,
-      });
-      this.inPosition = true;
-    } else if (this.inPosition && spread > this.config.spreadThreshold * 2) {
-      await ctx.broker.closePosition("EUR_USD");
-      this.inPosition = false;
-    }
-  }
-
-  async dispose() {}
-
-  getState(): StrategyStateSnapshot {
-    return {
-      phase: this.inPosition ? "In position" : "Watching",
-      indicators: [],
-      positions: [],
-    };
-  }
-}`}</code></pre>
+		<pre><code>{d.examples["example-spread"]}</code></pre>
 	</section>
 
 	<section id="strategy-interface">
 		<h2>Strategy Interface</h2>
 		<p>Your class must implement every member of the <code>Strategy</code> interface from <code>#core/strategy.js</code>:</p>
-		<div class="table-wrap">
-			<table>
-				<thead>
-					<tr><th>Member</th><th>Type</th><th>Description</th></tr>
-				</thead>
-				<tbody>
-					<tr><td><code>name</code></td><td><code>string</code></td><td>Identifier used in logs and the UI. Should be kebab-case matching your filename.</td></tr>
-					<tr><td><code>hedging</code></td><td><code>"required" | "forbidden" | "allowed"</code></td><td>Account compatibility. <code>"forbidden"</code> = netting (one position per instrument, most common). <code>"required"</code> = needs hedging (simultaneous long/short). <code>"allowed"</code> = works either way.</td></tr>
-					<tr><td><code>instruments</code></td><td><code>readonly string[]</code> (optional)</td><td>Instruments to stream. If omitted, the runner uses the 7 USD majors: EUR_USD, GBP_USD, USD_JPY, USD_CAD, USD_CHF, AUD_USD, NZD_USD.</td></tr>
-					<tr><td><code>init(ctx)</code></td><td><code>Promise&lt;void&gt;</code></td><td>Called once when the strategy starts. Use it to fetch initial data, warm up indicators, etc.</td></tr>
-					<tr><td><code>onTick(ctx, tick)</code></td><td><code>Promise&lt;void&gt;</code></td><td>Called on every price tick. This is your core logic &mdash; analyze the tick, manage positions, place orders.</td></tr>
-					<tr><td><code>dispose()</code></td><td><code>Promise&lt;void&gt;</code></td><td>Called on shutdown. Clean up state. (Open positions are closed automatically by the runner.)</td></tr>
-					<tr><td><code>getState()</code></td><td><code>StrategyStateSnapshot</code></td><td>Returns current state for the live monitoring page. Called after every tick.</td></tr>
-				</tbody>
-			</table>
-		</div>
+		{#if iface("Strategy")}
+			<div class="table-wrap">
+				<table>
+					<thead>
+						<tr><th>Member</th><th>Type</th><th>Description</th></tr>
+					</thead>
+					<tbody>
+						{#each iface("Strategy").members as m}
+							<tr>
+								<td><code>{m.name}{m.optional ? "?" : ""}</code></td>
+								<td><code>{m.type}</code></td>
+								<td>{m.doc || (m.readonly ? "readonly" : "")}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
 	</section>
 
 	<section id="context-and-broker">
@@ -149,48 +94,85 @@ export class SimpleSpreadStrategy implements Strategy {
 			the <code>Broker</code> interface. The same interface is backed by OANDA in live mode and a
 			simulated broker in backtests.
 		</p>
+		{#if iface("StrategyContext")}
+			<h3>StrategyContext</h3>
+			<div class="table-wrap">
+				<table>
+					<thead>
+						<tr><th>Field</th><th>Type</th><th>Description</th></tr>
+					</thead>
+					<tbody>
+						{#each iface("StrategyContext").members as m}
+							<tr>
+								<td><code>{m.name}{m.optional ? "?" : ""}</code></td>
+								<td><code>{m.type}</code></td>
+								<td>{m.doc}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+		<h3>Broker Methods</h3>
 		<div class="table-wrap">
 			<table>
 				<thead>
-					<tr><th>Method</th><th>Returns</th><th>Description</th></tr>
+					<tr><th>Method</th><th>Signature</th><th>Description</th></tr>
 				</thead>
 				<tbody>
-					<tr><td><code>getAccountSummary()</code></td><td><code>AccountSummary</code></td><td>Balance, unrealized P&amp;L, currency, hedging mode.</td></tr>
-					<tr><td><code>getPositions()</code></td><td><code>Position[]</code></td><td>All open positions with instrument, side, units, average price, unrealized P&amp;L.</td></tr>
-					<tr><td><code>submitOrder(order)</code></td><td><code>OrderResult</code></td><td>Place an order. See <a href="#order-request">OrderRequest</a> below.</td></tr>
-					<tr><td><code>closePosition(instrument)</code></td><td><code>OrderResult</code></td><td>Close all units of a position on an instrument.</td></tr>
-					<tr><td><code>getCandles(instrument, granularity, count)</code></td><td><code>Candle[]</code></td><td>Fetch recent historical candles (OHLCV).</td></tr>
-					<tr><td><code>getPrice(instrument)</code></td><td><code>Tick</code></td><td>Get current bid/ask for an instrument.</td></tr>
+					{#each brokerMethods as m}
+						<tr>
+							<td><code>{m.name}</code></td>
+							<td><code>{m.type}</code></td>
+							<td>{m.doc}</td>
+						</tr>
+					{/each}
 				</tbody>
 			</table>
 		</div>
 
 		<h3 id="order-request">OrderRequest</h3>
-		<pre><code>{`{
-  instrument: "EUR_USD",  // Instrument to trade
-  side: "buy" | "sell",   // Direction
-  type: "market",         // "market", "limit", or "stop"
-  units: 1000,            // Position size
-  price?: 1.0850,         // Required for limit/stop orders
-}`}</code></pre>
+		{#if iface("OrderRequest")}
+			<div class="table-wrap">
+				<table>
+					<thead>
+						<tr><th>Field</th><th>Type</th><th>Description</th></tr>
+					</thead>
+					<tbody>
+						{#each iface("OrderRequest").members as m}
+							<tr>
+								<td><code>{m.name}{m.optional ? "?" : ""}</code></td>
+								<td><code>{m.type}</code></td>
+								<td>{m.doc}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
 	</section>
 
 	<section id="tick-object">
 		<h2>Tick Object</h2>
 		<p>Every call to <code>onTick</code> receives a <code>Tick</code>:</p>
-		<div class="table-wrap">
-			<table>
-				<thead>
-					<tr><th>Field</th><th>Type</th><th>Description</th></tr>
-				</thead>
-				<tbody>
-					<tr><td><code>instrument</code></td><td><code>string</code></td><td>OANDA format, e.g., <code>"EUR_USD"</code></td></tr>
-					<tr><td><code>timestamp</code></td><td><code>number</code></td><td>Unix milliseconds</td></tr>
-					<tr><td><code>bid</code></td><td><code>number</code></td><td>Best bid price</td></tr>
-					<tr><td><code>ask</code></td><td><code>number</code></td><td>Best ask price</td></tr>
-				</tbody>
-			</table>
-		</div>
+		{#if iface("Tick")}
+			<div class="table-wrap">
+				<table>
+					<thead>
+						<tr><th>Field</th><th>Type</th><th>Description</th></tr>
+					</thead>
+					<tbody>
+						{#each iface("Tick").members as m}
+							<tr>
+								<td><code>{m.name}</code></td>
+								<td><code>{m.type}</code></td>
+								<td>{m.doc}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
 		<p>
 			Ticks arrive for all instruments listed in your <code>instruments</code> property.
 			Always check <code>tick.instrument</code> before using the price.
@@ -266,19 +248,7 @@ export class SimpleSpreadStrategy implements Strategy {
 			and the returned snapshot is displayed in real time. Return useful indicators and position info
 			to make monitoring easier.
 		</p>
-		<pre><code>{`getState(): StrategyStateSnapshot {
-  return {
-    phase: "Scanning",  // Current state label
-    detail: "Warming up 45/60 ticks",  // Optional extra info
-    indicators: [
-      { label: "Z-Score", instrument: "AUD_CAD", value: "1.82", signal: "neutral" },
-      { label: "Spread", value: "1.2 pips", signal: "buy" },
-    ],
-    positions: [
-      { instrument: "EUR_GBP", side: "sell", entryPrice: 0.8421, pnl: -2.30 },
-    ],
-  };
-}`}</code></pre>
+		<pre><code>{snippet("get-state")}</code></pre>
 		<p>
 			The <code>signal</code> field on indicators controls color coding: <code>"buy"</code> (green),
 			<code>"sell"</code> (red), <code>"neutral"</code> (gray), <code>"warn"</code> (yellow).
@@ -296,36 +266,13 @@ export class SimpleSpreadStrategy implements Strategy {
 					<tr><th>Import Path</th><th>Resolves To</th><th>Key Exports</th></tr>
 				</thead>
 				<tbody>
-					<tr>
-						<td><code>#core/strategy.js</code></td>
-						<td><code>src/core/strategy.ts</code></td>
-						<td><code>Strategy</code>, <code>StrategyContext</code>, <code>StrategyStateSnapshot</code>, <code>StrategyIndicator</code>, <code>StrategyPosition</code>, <code>HedgingMode</code>, <code>RecoveryConfig</code></td>
-					</tr>
-					<tr>
-						<td><code>#core/types.js</code></td>
-						<td><code>src/core/types.ts</code></td>
-						<td><code>Tick</code>, <code>Candle</code>, <code>Instrument</code>, <code>Side</code>, <code>OrderRequest</code>, <code>OrderResult</code>, <code>Position</code>, <code>AccountSummary</code>, <code>Granularity</code></td>
-					</tr>
-					<tr>
-						<td><code>#core/broker.js</code></td>
-						<td><code>src/core/broker.ts</code></td>
-						<td><code>Broker</code> interface</td>
-					</tr>
-					<tr>
-						<td><code>#data/instruments.js</code></td>
-						<td><code>src/data/instruments.ts</code></td>
-						<td><code>USD_MAJORS</code>, <code>CROSSES</code>, <code>CURRENCIES</code>, <code>parsePair()</code>, <code>findInstrument()</code>, <code>findTriangle()</code></td>
-					</tr>
-					<tr>
-						<td><code>#backtest/types.js</code></td>
-						<td><code>src/backtest/types.ts</code></td>
-						<td><code>SignalSnapshot</code>, <code>Trade</code>, <code>BacktestResult</code>, <code>BacktestConfig</code></td>
-					</tr>
-					<tr>
-						<td><code>#backtest/broker.js</code></td>
-						<td><code>src/backtest/broker.ts</code></td>
-						<td><code>BacktestBroker</code> class (for backtest-specific features)</td>
-					</tr>
+					{#each d.imports as imp}
+						<tr>
+							<td><code>{imp.path}</code></td>
+							<td><code>{imp.file}</code></td>
+							<td>{#each imp.exports as ex, i}{#if i > 0}, {/if}<code>{ex}</code>{/each}</td>
+						</tr>
+					{/each}
 				</tbody>
 			</table>
 		</div>
@@ -340,20 +287,7 @@ export class SimpleSpreadStrategy implements Strategy {
 		<pre><code>{`import { BacktestBroker } from "#backtest/broker.js";
 import type { SignalSnapshot } from "#backtest/types.js";
 
-// Inside onTick:
-if (ctx.broker instanceof BacktestBroker) {
-  const signal: SignalSnapshot = {
-    zScore: 2.1,
-    deviation: 0.003,
-    deviationMean: 0.001,
-    deviationStd: 0.001,
-    impliedRate: 0.9012,
-    actualRate: 0.9042,
-    legA: "AUD_USD", legAPrice: 0.6543,
-    legB: "USD_CAD", legBPrice: 1.3789,
-  };
-  ctx.broker.recordSignal(signal);
-}`}</code></pre>
+`}{snippet("backtest-signals")}</code></pre>
 		<p>
 			Signal snapshots are attached to trades in the backtest report, making it easier to
 			debug entry/exit decisions.
@@ -367,30 +301,14 @@ if (ctx.broker instanceof BacktestBroker) {
 			<code>recovery</code> field in <code>strategyMeta</code> to decide how to restore state.
 			If omitted, the default is <code>"clean"</code> (restart fresh).
 		</p>
-		<pre><code>{`// In strategyMeta:
-recovery: { mode: "clean" }            // Default — restart fresh
-recovery: { mode: "backfill", lookback: 120, granularity: "M1" }  // Replay candles
-recovery: { mode: "checkpoint" }        // Serialize/restore state
-recovery: { mode: "custom" }            // Strategy handles recovery
-
-// For "backfill" mode, ctx.backfilling is true during candle replay:
-async onTick(ctx: StrategyContext, tick: Tick) {
-  if (ctx.backfilling) {
-    // Update indicators but skip order placement
-    this.updateIndicators(tick);
-    return;
-  }
-  // Normal trading logic...
-}
-
-// For "checkpoint" mode, implement checkpoint() and restore():
-checkpoint() { return { zScores: this.zScores, lastPrices: this.lastPrices }; }
-restore(state: any) { this.zScores = state.zScores; this.lastPrices = state.lastPrices; }
-
-// For "custom" mode, implement recover():
-async recover(ctx: StrategyContext, positions: Position[]) {
-  // Fetch your own candles, rebuild state, check existing positions...
-}`}</code></pre>
+		<h3>Recovery Modes</h3>
+		<pre><code>{snippet("recovery-modes")}</code></pre>
+		<h3>Backfill: skip orders during replay</h3>
+		<pre><code>{snippet("backfill-ontick")}</code></pre>
+		<h3>Checkpoint: serialize/restore state</h3>
+		<pre><code>{snippet("checkpoint-methods")}</code></pre>
+		<h3>Custom: full control</h3>
+		<pre><code>{snippet("custom-recover")}</code></pre>
 	</section>
 
 	<section id="tips">

@@ -1,0 +1,626 @@
+{
+  "generatedAt": "2026-03-18T15:37:54.937Z",
+  "interfaces": {
+    "Strategy": {
+      "doc": "Abstract strategy interface",
+      "members": [
+        {
+          "name": "name",
+          "type": "string",
+          "doc": "",
+          "optional": false,
+          "readonly": true
+        },
+        {
+          "name": "hedging",
+          "type": "HedgingMode",
+          "doc": "",
+          "optional": false,
+          "readonly": true
+        },
+        {
+          "name": "instruments",
+          "type": "readonly string[]",
+          "doc": "Instruments this strategy needs streamed. If absent, the runner uses a default set.",
+          "optional": true,
+          "readonly": true
+        },
+        {
+          "name": "init",
+          "type": "(ctx: StrategyContext) => Promise<void>",
+          "doc": "Called once when the strategy starts",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "onTick",
+          "type": "(ctx: StrategyContext, tick: Tick) => Promise<void>",
+          "doc": "Called on each price tick",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "dispose",
+          "type": "() => Promise<void>",
+          "doc": "Called when the strategy is stopped",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "getState",
+          "type": "() => StrategyStateSnapshot",
+          "doc": "Return current strategy state for live monitoring",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "checkpoint",
+          "type": "() => unknown",
+          "doc": "For \"checkpoint\" recovery: return serializable state",
+          "optional": true,
+          "readonly": false
+        },
+        {
+          "name": "restore",
+          "type": "(state: unknown) => void",
+          "doc": "For \"checkpoint\" recovery: restore from serialized state",
+          "optional": true,
+          "readonly": false
+        },
+        {
+          "name": "recover",
+          "type": "(ctx: StrategyContext, positions: Position[]) => Promise<void>",
+          "doc": "For \"custom\" recovery: strategy handles its own recovery",
+          "optional": true,
+          "readonly": false
+        }
+      ]
+    },
+    "StrategyContext": {
+      "doc": "Context passed to a strategy on each tick",
+      "members": [
+        {
+          "name": "broker",
+          "type": "Broker",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "backfilling",
+          "type": "boolean",
+          "doc": "True during candle replay (backfill recovery) — skip order placement",
+          "optional": true,
+          "readonly": false
+        }
+      ]
+    },
+    "StrategyStateSnapshot": {
+      "doc": "Generic state snapshot returned by getState() for live display",
+      "members": [
+        {
+          "name": "phase",
+          "type": "string",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "detail",
+          "type": "string",
+          "doc": "",
+          "optional": true,
+          "readonly": false
+        },
+        {
+          "name": "indicators",
+          "type": "StrategyIndicator[]",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "positions",
+          "type": "StrategyPosition[]",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        }
+      ]
+    },
+    "StrategyIndicator": {
+      "doc": "A single indicator row for display on the live page",
+      "members": [
+        {
+          "name": "label",
+          "type": "string",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "instrument",
+          "type": "string",
+          "doc": "",
+          "optional": true,
+          "readonly": false
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "signal",
+          "type": "\"buy\" | \"sell\" | \"neutral\" | \"warn\"",
+          "doc": "",
+          "optional": true,
+          "readonly": false
+        }
+      ]
+    },
+    "StrategyPosition": {
+      "doc": "A strategy position for display",
+      "members": [
+        {
+          "name": "instrument",
+          "type": "string",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "side",
+          "type": "\"buy\" | \"sell\"",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "entryPrice",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "pnl",
+          "type": "number",
+          "doc": "",
+          "optional": true,
+          "readonly": false
+        },
+        {
+          "name": "detail",
+          "type": "string",
+          "doc": "",
+          "optional": true,
+          "readonly": false
+        }
+      ]
+    },
+    "Broker": {
+      "doc": "Abstract broker interface — implemented by OANDA, Tradovate, etc.",
+      "members": [
+        {
+          "name": "name",
+          "type": "string",
+          "doc": "",
+          "optional": false,
+          "readonly": true
+        },
+        {
+          "name": "getAccountSummary",
+          "type": "() => Promise<AccountSummary>",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "getPositions",
+          "type": "() => Promise<Position[]>",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "submitOrder",
+          "type": "(order: OrderRequest) => Promise<OrderResult>",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "closePosition",
+          "type": "(instrument: Instrument) => Promise<OrderResult>",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "getCandles",
+          "type": "(instrument: Instrument, granularity: Granularity, count: number) => Promise<Candle[]>",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "getCandlesByRange",
+          "type": "(instrument: Instrument, granularity: Granularity, from: Date, to: Date) => Promise<Candle[]>",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "getPrice",
+          "type": "(instrument: Instrument) => Promise<Tick>",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "streamPrices",
+          "type": "(instruments: Instrument[], onTick: (tick: Tick) => void) => Promise<{ close: () => void }>",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        }
+      ]
+    },
+    "Tick": {
+      "doc": "A price tick with bid/ask",
+      "members": [
+        {
+          "name": "instrument",
+          "type": "Instrument",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "timestamp",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "bid",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "ask",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        }
+      ]
+    },
+    "OrderRequest": {
+      "doc": "Order request sent to a broker",
+      "members": [
+        {
+          "name": "instrument",
+          "type": "Instrument",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "side",
+          "type": "Side",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "type",
+          "type": "OrderType",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "units",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "price",
+          "type": "number",
+          "doc": "",
+          "optional": true,
+          "readonly": false
+        }
+      ]
+    },
+    "OrderResult": {
+      "doc": "Order response from broker",
+      "members": [
+        {
+          "name": "id",
+          "type": "string",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "instrument",
+          "type": "Instrument",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "side",
+          "type": "Side",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "units",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "filledPrice",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "timestamp",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        }
+      ]
+    },
+    "Position": {
+      "doc": "Current open position",
+      "members": [
+        {
+          "name": "instrument",
+          "type": "Instrument",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "side",
+          "type": "Side",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "units",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "averagePrice",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "unrealizedPL",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        }
+      ]
+    },
+    "AccountSummary": {
+      "doc": "Account state",
+      "members": [
+        {
+          "name": "balance",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "unrealizedPL",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "openPositions",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "hedgingEnabled",
+          "type": "boolean",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        }
+      ]
+    },
+    "Candle": {
+      "doc": "OHLCV candle",
+      "members": [
+        {
+          "name": "timestamp",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "open",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "high",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "low",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "close",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "name": "volume",
+          "type": "number",
+          "doc": "",
+          "optional": false,
+          "readonly": false
+        }
+      ]
+    }
+  },
+  "types": {
+    "HedgingMode": {
+      "doc": "Whether the strategy requires, forbids, or allows hedging accounts.\n- \"required\" — needs hedging (simultaneous long/short on same instrument)\n- \"forbidden\" — assumes netting (one position per instrument)\n- \"allowed\" — works either way",
+      "definition": "\"required\" | \"forbidden\" | \"allowed\""
+    },
+    "RecoveryConfig": {
+      "doc": "Recovery mode configuration for live trading",
+      "definition": "| { mode: \"clean\" }\n  | { mode: \"backfill\"; lookback: number; granularity: Granularity }\n  | { mode: \"checkpoint\" }\n  | { mode: \"custom\" }"
+    },
+    "Instrument": {
+      "doc": "A currency pair like \"EUR_USD\" (OANDA format uses underscore)",
+      "definition": "string"
+    },
+    "Side": {
+      "doc": "Order side",
+      "definition": "\"buy\" | \"sell\""
+    },
+    "OrderType": {
+      "doc": "Order types",
+      "definition": "\"market\" | \"limit\" | \"stop\""
+    },
+    "Granularity": {
+      "doc": "Candle granularity",
+      "definition": "| \"S5\"\n  | \"S10\"\n  | \"S15\"\n  | \"S30\"\n  | \"M1\"\n  | \"M2\"\n  | \"M4\"\n  | \"M5\"\n  | \"M10\"\n  | \"M15\"\n  | \"M30\"\n  | \"H1\"\n  | \"H2\"\n  | \"H3\"\n  | \"H4\"\n  | \"H6\"\n  | \"H8\"\n  | \"H12\"\n  | \"D\"\n  | \"W\"\n  | \"M\""
+    }
+  },
+  "imports": [
+    {
+      "path": "#core/strategy.js",
+      "file": "src/core/strategy.ts",
+      "exports": [
+        "StrategyContext",
+        "RecoveryConfig",
+        "HedgingMode",
+        "StrategyIndicator",
+        "StrategyPosition",
+        "StrategyStateSnapshot",
+        "Strategy"
+      ]
+    },
+    {
+      "path": "#core/types.js",
+      "file": "src/core/types.ts",
+      "exports": [
+        "Instrument",
+        "Candle",
+        "Tick",
+        "Side",
+        "OrderType",
+        "OrderRequest",
+        "OrderResult",
+        "Position",
+        "AccountSummary",
+        "Granularity"
+      ]
+    },
+    {
+      "path": "#core/broker.js",
+      "file": "src/core/broker.ts",
+      "exports": [
+        "Broker"
+      ]
+    },
+    {
+      "path": "#data/instruments.js",
+      "file": "src/data/instruments.ts",
+      "exports": [
+        "USD_MAJORS",
+        "CROSSES",
+        "ALL_INSTRUMENTS",
+        "CURRENCIES",
+        "Currency",
+        "parsePair",
+        "findInstrument",
+        "findTriangle"
+      ]
+    },
+    {
+      "path": "#backtest/types.js",
+      "file": "src/backtest/types.ts",
+      "exports": [
+        "BacktestConfig",
+        "SignalSnapshot",
+        "Trade",
+        "BacktestResult"
+      ]
+    },
+    {
+      "path": "#backtest/broker.js",
+      "file": "src/backtest/broker.ts",
+      "exports": [
+        "BacktestBroker"
+      ]
+    }
+  ],
+  "examples": {
+    "example-spread": "import type { Strategy, StrategyContext, StrategyStateSnapshot } from \"#core/strategy.js\";\nimport type { Tick } from \"#core/types.js\";\n\nexport const strategyMeta = {\n  name: \"Simple Spread\",\n  description: \"Buys EUR/USD when spread is tight, sells when it widens.\",\n  configFields: {\n    common: {\n      spreadThreshold: {\n        label: \"Max spread (pips)\", type: \"number\" as const,\n        default: 1.5, min: 0, step: 0.1,\n      },\n    },\n    backtest: {},\n    live: {\n      units: { label: \"Units\", type: \"number\" as const, default: 1000, min: 1 },\n    },\n  },\n};\n\ninterface Config {\n  spreadThreshold: number;\n  units: number;\n}\n\nconst DEFAULTS: Config = { spreadThreshold: 1.5, units: 1000 };\n\nexport class SimpleSpreadStrategy implements Strategy {\n  readonly name = \"simple-spread\";\n  readonly hedging = \"forbidden\" as const;\n  readonly instruments = [\"EUR_USD\"] as const;\n\n  private config: Config;\n  private inPosition = false;\n\n  constructor(cfg: Record<string, unknown>) {\n    this.config = {\n      spreadThreshold: (cfg.spreadThreshold as number) ?? DEFAULTS.spreadThreshold,\n      units: (cfg.units as number) ?? DEFAULTS.units,\n    };\n  }\n\n  async init() {}\n\n  async onTick(ctx: StrategyContext, tick: Tick) {\n    if (tick.instrument !== \"EUR_USD\") return;\n\n    const spread = (tick.ask - tick.bid) * 10_000; // convert to pips\n\n    if (!this.inPosition && spread < this.config.spreadThreshold) {\n      await ctx.broker.submitOrder({\n        instrument: \"EUR_USD\",\n        side: \"buy\",\n        type: \"market\",\n        units: this.config.units,\n      });\n      this.inPosition = true;\n    } else if (this.inPosition && spread > this.config.spreadThreshold * 2) {\n      await ctx.broker.closePosition(\"EUR_USD\");\n      this.inPosition = false;\n    }\n  }\n\n  async dispose() {}\n\n  getState(): StrategyStateSnapshot {\n    return {\n      phase: this.inPosition ? \"In position\" : \"Watching\",\n      indicators: [],\n      positions: [],\n    };\n  }\n}"
+  },
+  "snippets": {
+    "backtest-signals": "// Inside onTick:\nfunction recordSignalExample(ctx: StrategyContext) {\n  if (ctx.broker instanceof BacktestBroker) {\n    const signal: SignalSnapshot = {\n      zScore: 2.1,\n      deviation: 0.003,\n      deviationMean: 0.001,\n      deviationStd: 0.001,\n      impliedRate: 0.9012,\n      actualRate: 0.9042,\n      legA: \"AUD_USD\", legAPrice: 0.6543,\n      legB: \"USD_CAD\", legBPrice: 1.3789,\n    };\n    ctx.broker.setEntrySignal(signal);\n  }\n}",
+    "get-state": "function getStateExample(): StrategyStateSnapshot {\n  return {\n    phase: \"Scanning\",  // Current state label\n    detail: \"Warming up 45/60 ticks\",  // Optional extra info\n    indicators: [\n      { label: \"Z-Score\", instrument: \"AUD_CAD\", value: \"1.82\", signal: \"neutral\" },\n      { label: \"Spread\", value: \"1.2 pips\", signal: \"buy\" },\n    ],\n    positions: [\n      { instrument: \"EUR_GBP\", side: \"sell\", entryPrice: 0.8421, pnl: -2.30 },\n    ],\n  };\n}",
+    "recovery-modes": "// In strategyMeta:\nconst clean: RecoveryConfig = { mode: \"clean\" };\nconst backfill: RecoveryConfig = { mode: \"backfill\", lookback: 120, granularity: \"M1\" };\nconst checkpoint: RecoveryConfig = { mode: \"checkpoint\" };\nconst custom: RecoveryConfig = { mode: \"custom\" };",
+    "backfill-ontick": "async function onTickWithBackfill(ctx: StrategyContext, tick: Tick) {\n  if (ctx.backfilling) {\n    // Update indicators but skip order placement\n    return;\n  }\n  // Normal trading logic...\n}",
+    "checkpoint-methods": "class CheckpointExample {\n  private zScores = new Map<string, number>();\n  private lastPrices = new Map<string, number>();\n\n  checkpoint(): unknown {\n    return {\n      zScores: [...this.zScores.entries()],\n      lastPrices: [...this.lastPrices.entries()],\n    };\n  }\n\n  restore(state: unknown): void {\n    const s = state as { zScores: [string, number][]; lastPrices: [string, number][] };\n    this.zScores = new Map(s.zScores);\n    this.lastPrices = new Map(s.lastPrices);\n  }\n}",
+    "custom-recover": "async function recoverExample(ctx: StrategyContext, positions: Position[]) {\n  // Fetch recent candles to rebuild indicator state\n  const candles = await ctx.broker.getCandles(\"EUR_USD\", \"M1\", 60);\n  // Check existing positions from broker\n  const existing = await ctx.broker.getPositions();\n  // Rebuild strategy state from candles and positions...\n}"
+  }
+}

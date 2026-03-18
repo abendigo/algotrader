@@ -12,7 +12,8 @@
     "backtest": "tsx src/backtest/run.ts",
     "regenerate": "tsx src/backtest/regenerate.ts",
     "live": "tsx src/live/runner.ts",
-    "live-service": "tsx src/live/service.ts"
+    "live-service": "tsx src/live/service.ts",
+    "gen-docs": "tsx src/tools/gen-strategy-docs.ts"
   },
   "keywords": [],
   "author": "",

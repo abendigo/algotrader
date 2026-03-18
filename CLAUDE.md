@@ -41,6 +41,7 @@
 - `npm run regenerate [filename]` — regenerate HTML/CSV from saved JSON results
 - `npm run live` — run a single strategy live via standalone runner (logs to `logs/`)
 - `npm run live-service --user=<email>` — start per-user live trading service (shared stream, HTTP API)
+- `npm run gen-docs` — regenerate strategy documentation from TypeScript interfaces (run after changing strategy/broker/types interfaces)
 
 ## Maintenance Notes
-- **Strategy interface changes** — when modifying `src/core/strategy.ts` (e.g., adding methods, changing `StrategyContext`), also update the public documentation at `web/src/routes/docs/strategies/` to reflect the new interface
+- **Strategy interface changes** — when modifying `src/core/strategy.ts`, `src/core/broker.ts`, or `src/core/types.ts`, run `npm run gen-docs` to regenerate the docs JSON. The example strategy in `src/docs/examples/` and snippets in `src/docs/snippets/` are type-checked, so `npm run typecheck` will catch breakage automatically.
