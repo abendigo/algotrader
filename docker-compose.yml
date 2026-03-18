@@ -8,6 +8,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - PORT=3000
+      - ORIGIN=https://algotrader.markos.games
       - DOCKER_MODE=true
       - DOCKER_NETWORK=${COMPOSE_PROJECT_NAME:-algotrader}_default
       - LIVE_IMAGE=${LIVE_IMAGE:-ghcr.io/abendigo/algotrader:latest}
