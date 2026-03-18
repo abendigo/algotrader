@@ -39,9 +39,10 @@ export interface StrategyMeta {
   source: "user" | "shared" | "builtin";
 }
 
-const DATA_DIR = resolve(import.meta.dirname, "../../data");
+const DATA_DIR = process.env.DATA_DIR ?? resolve(import.meta.dirname, "../../data");
 const SHARED_STRATEGIES_DIR = join(DATA_DIR, "shared/strategies");
-const BUILTIN_STRATEGIES_DIR = resolve(import.meta.dirname, "../strategies");
+const PROJECT_ROOT = process.env.PROJECT_ROOT ?? resolve(import.meta.dirname, "../..");
+const BUILTIN_STRATEGIES_DIR = join(PROJECT_ROOT, "src/strategies");
 
 /**
  * Dynamically load and instantiate a strategy.
