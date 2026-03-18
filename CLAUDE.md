@@ -39,4 +39,8 @@
   - Strategies: `lead-lag`, `cross-drift`, `currency-momentum`, `session-divergence`, `london-breakout`, `cross-momentum`, `range-fade`, `correlation-pairs`
   - Generates HTML, CSV, and JSON reports in `reports/`
 - `npm run regenerate [filename]` — regenerate HTML/CSV from saved JSON results
-- `npm run live` — run London Breakout strategy live on OANDA practice account (logs to `logs/`)
+- `npm run live` — run a single strategy live via standalone runner (logs to `logs/`)
+- `npm run live-service --user=<email>` — start per-user live trading service (shared stream, HTTP API)
+
+## Maintenance Notes
+- **Strategy interface changes** — when modifying `src/core/strategy.ts` (e.g., adding methods, changing `StrategyContext`), also update the public documentation at `web/src/routes/docs/strategies/` to reflect the new interface
