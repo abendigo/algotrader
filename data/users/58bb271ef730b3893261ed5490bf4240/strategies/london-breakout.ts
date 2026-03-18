@@ -54,6 +54,7 @@ export interface LondonBreakoutConfig {
 export const strategyMeta = {
   name: "London Breakout",
   description: "Trades the directional move when the London session opens, using the Asian session range as the setup.",
+  recovery: { mode: "clean" as const },
   configFields: {
     common: {
       units: { label: "Units", type: "number" as const, default: 100, min: 1 },
