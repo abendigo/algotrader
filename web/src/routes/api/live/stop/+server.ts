@@ -10,7 +10,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const accountId = body.accountId as string;
   if (!accountId) return json({ error: "accountId is required" }, { status: 400 });
 
-  const result = stopLive(user.id, accountId);
+  const result = await stopLive(user.id, accountId);
   if (!result.success) {
     return json({ error: result.error }, { status: 404 });
   }

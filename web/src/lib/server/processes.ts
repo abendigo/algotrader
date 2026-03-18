@@ -1,17 +1,18 @@
 /**
  * Server-side process manager for live trading sessions and backtests.
  *
- * Live sessions are spawned detached via `caffeinate -i` so they survive
- * web server restarts (e.g., Vite hot-reload). Session state is tracked
- * in JSON files under data/users/{userId}/live-sessions/.
+ * Live sessions are managed via a per-user service process that shares a single
+ * OANDA streaming connection. The web app communicates with the service via HTTP.
+ * If no service is running, one is spawned automatically.
  *
  * Backtests remain in-memory managed (they're short-lived).
  */
 
 import { spawn } from "child_process";
 import { join } from "path";
-import { writeFileSync, readFileSync, existsSync, readdirSync, mkdirSync, unlinkSync } from "fs";
-import type { SessionFile } from "../../../../src/live/runner.js";
+import { readFileSync, existsSync, readdirSync, writeFileSync, unlinkSync } from "fs";
+import { ServiceClient, getServiceClient, readServiceDiscovery } from "../../../../src/live/service-client.js";
+import type { SessionFile } from "../../../../src/live/session-manager.js";
 
 const PROJECT_ROOT = join(import.meta.dirname, "../../../..");
 const DATA_DIR = join(PROJECT_ROOT, "data");
@@ -23,16 +24,7 @@ function getSessionsDir(userId: string): string {
   return join(DATA_DIR, "users", userId, "live-sessions");
 }
 
-function isPidAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// --- Live session management (detached, session-file based) ---
+// --- Live session management (via per-user service) ---
 
 export interface LiveConfig {
   units?: number;
@@ -43,6 +35,44 @@ export interface LiveConfig {
   instruments?: string;
 }
 
+/**
+ * Get or spawn a service for a user.
+ * Returns a ServiceClient ready to use, or null on failure.
+ */
+async function ensureService(userId: string, userEmail: string): Promise<ServiceClient | null> {
+  // Check for existing service
+  let client = await getServiceClient(userId);
+  if (client) return client;
+
+  // Spawn a new service process
+  const serviceArgs = [
+    join(PROJECT_ROOT, "src/live/service.ts"),
+    `--user=${userEmail}`,
+  ];
+
+  const child = spawn("caffeinate", ["-i", TSX, ...serviceArgs], {
+    cwd: PROJECT_ROOT,
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: true,
+  });
+
+  child.stdout?.on("data", () => {}); // drain
+  child.stderr?.on("data", () => {}); // drain
+  child.unref();
+
+  // Poll for discovery file (max 5s)
+  const discoveryPath = join(DATA_DIR, "users", userId, "live-service.json");
+  for (let i = 0; i < 25; i++) {
+    await new Promise((r) => setTimeout(r, 200));
+    if (existsSync(discoveryPath)) {
+      client = await getServiceClient(userId);
+      if (client) return client;
+    }
+  }
+
+  return null;
+}
+
 export async function startLive(
   userId: string,
   userEmail: string,
@@ -50,117 +80,63 @@ export async function startLive(
   strategy: string,
   config: LiveConfig = {},
 ): Promise<{ success: boolean; error?: string }> {
-  // Check for existing active session on this account
-  const existing = discoverSessions(userId);
-  if (existing.some((s) => s.accountId === accountId && s.status === "running")) {
-    return { success: false, error: "Session already running for this account" };
-  }
-
-  const sessionsDir = getSessionsDir(userId);
-  if (!existsSync(sessionsDir)) mkdirSync(sessionsDir, { recursive: true });
-
-  const sessionId = `${accountId}-${strategy}-${Date.now()}`;
-  const sessionFilePath = join(sessionsDir, `${sessionId}.json`);
-
-  // Write initial session file
-  const sessionData: SessionFile = {
-    sessionId,
-    pid: 0, // will be updated by runner or after spawn
-    userId,
-    accountId,
-    strategy,
-    config: { units: config.units ?? 100, ...config },
-    status: "starting",
-    startedAt: new Date().toISOString(),
-    lastHeartbeat: new Date().toISOString(),
-  };
-  writeFileSync(sessionFilePath, JSON.stringify(sessionData, null, 2));
-
-  // Build runner CLI args
-  const runnerArgs = [
-    join(PROJECT_ROOT, "src/live/runner.ts"),
-    `--user=${userEmail}`,
-    `--account=${accountId}`,
-    `--strategy=${strategy}`,
-    `--session-file=${sessionFilePath}`,
-  ];
-
-  const units = config.units ?? 100;
-  runnerArgs.push(`--units=${units}`);
-  if (config.stopRangeFraction != null) runnerArgs.push(`--stop-frac=${config.stopRangeFraction}`);
-  if (config.skipDays != null && config.skipDays.length > 0) runnerArgs.push(`--skip-days=${config.skipDays.join(",")}`);
-  if (config.trailActivateFraction != null) runnerArgs.push(`--trail-activate=${config.trailActivateFraction}`);
-  if (config.trailDistanceFraction != null) runnerArgs.push(`--trail-dist=${config.trailDistanceFraction}`);
-  if (config.instruments) runnerArgs.push(`--pairs=${config.instruments}`);
-
-  // Spawn detached via caffeinate to survive server restarts and prevent idle sleep
-  const child = spawn("caffeinate", ["-i", TSX, ...runnerArgs], {
-    cwd: PROJECT_ROOT,
-    stdio: ["ignore", "pipe", "pipe"],
-    detached: true,
-  });
-
-  // Update session file with actual PID
-  if (child.pid) {
-    sessionData.pid = child.pid;
-    writeFileSync(sessionFilePath, JSON.stringify(sessionData, null, 2));
-  }
-
-  // Collect early output for error detection
-  const earlyOutput: string[] = [];
-  const appendOutput = (data: Buffer) => {
-    earlyOutput.push(...data.toString().split("\n").filter(Boolean));
-  };
-  child.stdout?.on("data", appendOutput);
-  child.stderr?.on("data", appendOutput);
-
-  // Wait briefly for early failures
-  const earlyExit = await Promise.race([
-    new Promise<number | null>((resolve) => child.on("exit", (code) => resolve(code))),
-    new Promise<"running">((resolve) => setTimeout(() => resolve("running"), 3000)),
-  ]);
-
-  if (earlyExit !== "running") {
-    // Process died early — read session file for error, or use output
-    let error = "Process exited immediately";
-    try {
-      const updated = JSON.parse(readFileSync(sessionFilePath, "utf-8")) as SessionFile;
-      if (updated.error) error = updated.error;
-      else {
-        const errorLine = earlyOutput.findLast((l) => l.includes("Error:"));
-        if (errorLine) error = errorLine;
-      }
-    } catch { /* ignore */ }
-    return { success: false, error };
-  }
-
-  // Detach — let the process live independently
-  child.stdout?.removeAllListeners("data");
-  child.stderr?.removeAllListeners("data");
-  child.unref();
-
-  return { success: true };
-}
-
-export function stopLive(
-  userId: string,
-  accountId: string,
-): { success: boolean; error?: string } {
-  const sessions = discoverSessions(userId);
-  const active = sessions.find((s) => s.accountId === accountId && s.status === "running");
-  if (!active) {
-    return { success: false, error: "No running session for this account" };
+  const client = await ensureService(userId, userEmail);
+  if (!client) {
+    return { success: false, error: "Failed to start live trading service" };
   }
 
   try {
-    process.kill(active.pid, "SIGTERM");
-    return { success: true };
-  } catch {
-    return { success: false, error: "Failed to send stop signal (process may already be dead)" };
+    const result = await client.startSession(accountId, strategy, {
+      units: config.units ?? 100,
+      ...config,
+    });
+    if (result.ok) {
+      return { success: true };
+    }
+    return { success: false, error: result.error };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
-export function discoverSessions(userId: string): SessionFile[] {
+export async function stopLive(
+  userId: string,
+  accountId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const client = await getServiceClient(userId);
+  if (!client) {
+    return { success: false, error: "No live trading service running" };
+  }
+
+  try {
+    // Find the session for this account
+    const sessions = await client.getSessions();
+    const active = sessions.find((s) => s.accountId === accountId && s.status === "running");
+    if (!active) {
+      return { success: false, error: "No running session for this account" };
+    }
+
+    const result = await client.stopSession(active.sessionId);
+    return { success: result.ok, error: result.error };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+export async function discoverSessions(userId: string): Promise<SessionFile[]> {
+  // Try service client first
+  const client = await getServiceClient(userId);
+  if (client) {
+    try {
+      return await client.getSessions();
+    } catch { /* fall through to file scan */ }
+  }
+
+  // Fallback: read session files directly (service may be down)
+  return discoverSessionsFromFiles(userId);
+}
+
+function discoverSessionsFromFiles(userId: string): SessionFile[] {
   const sessionsDir = getSessionsDir(userId);
   if (!existsSync(sessionsDir)) return [];
 
@@ -168,16 +144,6 @@ export function discoverSessions(userId: string): SessionFile[] {
   for (const file of readdirSync(sessionsDir).filter((f) => f.endsWith(".json"))) {
     try {
       const session = JSON.parse(readFileSync(join(sessionsDir, file), "utf-8")) as SessionFile;
-
-      // If session claims to be running/starting, verify PID is alive
-      if ((session.status === "running" || session.status === "starting") && session.pid > 0) {
-        if (!isPidAlive(session.pid)) {
-          session.status = "error";
-          session.error = "Process died unexpectedly";
-          writeFileSync(join(sessionsDir, file), JSON.stringify(session, null, 2));
-        }
-      }
-
       results.push(session);
     } catch {
       // skip malformed files

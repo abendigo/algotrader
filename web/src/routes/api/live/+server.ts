@@ -10,7 +10,7 @@ function getUserLiveDir(userId: string): string {
   return join(DATA_DIR, "users", userId, "live");
 }
 
-export const GET: RequestHandler = ({ url, locals }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
   const user = locals.user;
   if (!user) return json({ error: "Not authenticated" }, { status: 401 });
 
@@ -18,8 +18,8 @@ export const GET: RequestHandler = ({ url, locals }) => {
   const accountId = url.searchParams.get("account");
 
   if (type === "sessions") {
-    // Discover sessions from session files + state.json for display info
-    const sessionFiles = discoverSessions(user.id);
+    // Discover sessions from service (or fallback to session files) + state.json for display info
+    const sessionFiles = await discoverSessions(user.id);
     const liveDir = getUserLiveDir(user.id);
 
     const sessions = [];
