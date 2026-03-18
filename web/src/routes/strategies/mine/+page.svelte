@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from "svelte";
 
 	let { data } = $props();
+	const initialGranularity = data.availableGranularities[0]?.name ?? "M1";
 
 	// Poll for running backtests
 	interface RunningBacktest {
@@ -54,7 +55,7 @@
 	let actionMessage = $state("");
 	let actionError = $state("");
 	let backtestStrategy = $state("");
-	let backtestGranularity = $state(data.availableGranularities[0]?.name ?? "M1");
+	let backtestGranularity = $state(initialGranularity);
 	let showAdvanced = $state(false);
 	let btSpreadMult = $state(1.5);
 	let btExecDelay = $state(1);

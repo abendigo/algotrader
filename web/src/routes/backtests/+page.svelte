@@ -152,9 +152,7 @@
 	.pos { color: #3fb950; }
 	.neg { color: #f85149; }
 	.muted { color: #8b949e; }
-	.actions { white-space: nowrap; }
-	.secondary { color: #8b949e; margin-left: 8px; }
-	.detail-row td {
+.detail-row td {
 		padding: 0;
 		border-bottom: 2px solid #21262d;
 	}
