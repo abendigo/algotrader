@@ -1,6 +1,6 @@
 services:
   web:
-    image: ${LIVE_IMAGE:-ghcr.io/your-org/algotrader:latest}
+    image: ${LIVE_IMAGE:-ghcr.io/abendigo/algotrader:latest}
     ports:
       - "3000:3000"
     volumes:
@@ -10,7 +10,7 @@ services:
       - PORT=3000
       - DOCKER_MODE=true
       - DOCKER_NETWORK=${COMPOSE_PROJECT_NAME:-algotrader}_default
-      - LIVE_IMAGE=${LIVE_IMAGE:-ghcr.io/your-org/algotrader:latest}
+      - LIVE_IMAGE=${LIVE_IMAGE:-ghcr.io/abendigo/algotrader:latest}
       - LIVE_PORT=9400
       - DATA_VOLUME=algotrader-data
     labels:
