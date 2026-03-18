@@ -1,22 +1,209 @@
 /**
  * Server-side process manager for live trading sessions and backtests.
- * Spawns child processes and tracks them by userId + accountId.
+ *
+ * Live sessions are spawned detached via `caffeinate -i` so they survive
+ * web server restarts (e.g., Vite hot-reload). Session state is tracked
+ * in JSON files under data/users/{userId}/live-sessions/.
+ *
+ * Backtests remain in-memory managed (they're short-lived).
  */
 
-import { spawn, type ChildProcess } from "child_process";
+import { spawn } from "child_process";
 import { join } from "path";
+import { writeFileSync, readFileSync, existsSync, readdirSync, mkdirSync, unlinkSync } from "fs";
+import type { SessionFile } from "../../../../src/live/runner.js";
 
 const PROJECT_ROOT = join(import.meta.dirname, "../../../..");
+const DATA_DIR = join(PROJECT_ROOT, "data");
 const TSX = join(PROJECT_ROOT, "node_modules/.bin/tsx");
 
-interface ManagedProcess {
-  process: ChildProcess;
-  userId: string;
-  accountId: string;
-  type: "live" | "backtest";
-  startedAt: string;
-  output: string[]; // last N lines of combined stdout/stderr
+// --- Session file helpers ---
+
+function getSessionsDir(userId: string): string {
+  return join(DATA_DIR, "users", userId, "live-sessions");
 }
+
+function isPidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// --- Live session management (detached, session-file based) ---
+
+export interface LiveConfig {
+  units?: number;
+  stopRangeFraction?: number;
+  skipDays?: number[];
+  trailActivateFraction?: number;
+  trailDistanceFraction?: number;
+  instruments?: string;
+}
+
+export async function startLive(
+  userId: string,
+  userEmail: string,
+  accountId: string,
+  strategy: string,
+  config: LiveConfig = {},
+): Promise<{ success: boolean; error?: string }> {
+  // Check for existing active session on this account
+  const existing = discoverSessions(userId);
+  if (existing.some((s) => s.accountId === accountId && s.status === "running")) {
+    return { success: false, error: "Session already running for this account" };
+  }
+
+  const sessionsDir = getSessionsDir(userId);
+  if (!existsSync(sessionsDir)) mkdirSync(sessionsDir, { recursive: true });
+
+  const sessionId = `${accountId}-${strategy}-${Date.now()}`;
+  const sessionFilePath = join(sessionsDir, `${sessionId}.json`);
+
+  // Write initial session file
+  const sessionData: SessionFile = {
+    sessionId,
+    pid: 0, // will be updated by runner or after spawn
+    userId,
+    accountId,
+    strategy,
+    config: { units: config.units ?? 100, ...config },
+    status: "starting",
+    startedAt: new Date().toISOString(),
+    lastHeartbeat: new Date().toISOString(),
+  };
+  writeFileSync(sessionFilePath, JSON.stringify(sessionData, null, 2));
+
+  // Build runner CLI args
+  const runnerArgs = [
+    join(PROJECT_ROOT, "src/live/runner.ts"),
+    `--user=${userEmail}`,
+    `--account=${accountId}`,
+    `--strategy=${strategy}`,
+    `--session-file=${sessionFilePath}`,
+  ];
+
+  const units = config.units ?? 100;
+  runnerArgs.push(`--units=${units}`);
+  if (config.stopRangeFraction != null) runnerArgs.push(`--stop-frac=${config.stopRangeFraction}`);
+  if (config.skipDays != null && config.skipDays.length > 0) runnerArgs.push(`--skip-days=${config.skipDays.join(",")}`);
+  if (config.trailActivateFraction != null) runnerArgs.push(`--trail-activate=${config.trailActivateFraction}`);
+  if (config.trailDistanceFraction != null) runnerArgs.push(`--trail-dist=${config.trailDistanceFraction}`);
+  if (config.instruments) runnerArgs.push(`--pairs=${config.instruments}`);
+
+  // Spawn detached via caffeinate to survive server restarts and prevent idle sleep
+  const child = spawn("caffeinate", ["-i", TSX, ...runnerArgs], {
+    cwd: PROJECT_ROOT,
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: true,
+  });
+
+  // Update session file with actual PID
+  if (child.pid) {
+    sessionData.pid = child.pid;
+    writeFileSync(sessionFilePath, JSON.stringify(sessionData, null, 2));
+  }
+
+  // Collect early output for error detection
+  const earlyOutput: string[] = [];
+  const appendOutput = (data: Buffer) => {
+    earlyOutput.push(...data.toString().split("\n").filter(Boolean));
+  };
+  child.stdout?.on("data", appendOutput);
+  child.stderr?.on("data", appendOutput);
+
+  // Wait briefly for early failures
+  const earlyExit = await Promise.race([
+    new Promise<number | null>((resolve) => child.on("exit", (code) => resolve(code))),
+    new Promise<"running">((resolve) => setTimeout(() => resolve("running"), 3000)),
+  ]);
+
+  if (earlyExit !== "running") {
+    // Process died early — read session file for error, or use output
+    let error = "Process exited immediately";
+    try {
+      const updated = JSON.parse(readFileSync(sessionFilePath, "utf-8")) as SessionFile;
+      if (updated.error) error = updated.error;
+      else {
+        const errorLine = earlyOutput.findLast((l) => l.includes("Error:"));
+        if (errorLine) error = errorLine;
+      }
+    } catch { /* ignore */ }
+    return { success: false, error };
+  }
+
+  // Detach — let the process live independently
+  child.stdout?.removeAllListeners("data");
+  child.stderr?.removeAllListeners("data");
+  child.unref();
+
+  return { success: true };
+}
+
+export function stopLive(
+  userId: string,
+  accountId: string,
+): { success: boolean; error?: string } {
+  const sessions = discoverSessions(userId);
+  const active = sessions.find((s) => s.accountId === accountId && s.status === "running");
+  if (!active) {
+    return { success: false, error: "No running session for this account" };
+  }
+
+  try {
+    process.kill(active.pid, "SIGTERM");
+    return { success: true };
+  } catch {
+    return { success: false, error: "Failed to send stop signal (process may already be dead)" };
+  }
+}
+
+export function discoverSessions(userId: string): SessionFile[] {
+  const sessionsDir = getSessionsDir(userId);
+  if (!existsSync(sessionsDir)) return [];
+
+  const results: SessionFile[] = [];
+  for (const file of readdirSync(sessionsDir).filter((f) => f.endsWith(".json"))) {
+    try {
+      const session = JSON.parse(readFileSync(join(sessionsDir, file), "utf-8")) as SessionFile;
+
+      // If session claims to be running/starting, verify PID is alive
+      if ((session.status === "running" || session.status === "starting") && session.pid > 0) {
+        if (!isPidAlive(session.pid)) {
+          session.status = "error";
+          session.error = "Process died unexpectedly";
+          writeFileSync(join(sessionsDir, file), JSON.stringify(session, null, 2));
+        }
+      }
+
+      results.push(session);
+    } catch {
+      // skip malformed files
+    }
+  }
+
+  return results;
+}
+
+export function cleanSession(userId: string, sessionId: string): boolean {
+  const sessionsDir = getSessionsDir(userId);
+  const filePath = join(sessionsDir, `${sessionId}.json`);
+  if (!existsSync(filePath)) return false;
+
+  try {
+    const session = JSON.parse(readFileSync(filePath, "utf-8")) as SessionFile;
+    // Only clean non-running sessions
+    if (session.status === "running" || session.status === "starting") return false;
+    unlinkSync(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// --- Backtest management (unchanged — in-memory, short-lived) ---
 
 export interface BacktestProcess {
   id: string;
@@ -30,96 +217,8 @@ export interface BacktestProcess {
 }
 
 const MAX_OUTPUT_LINES = 200;
-const processes = new Map<string, ManagedProcess>();
 const backtests = new Map<string, BacktestProcess>();
 let backtestCounter = 0;
-
-function key(userId: string, accountId: string): string {
-  return `${userId}:${accountId}`;
-}
-
-export async function startLive(
-  userId: string,
-  userEmail: string,
-  accountId: string,
-  strategy: string,
-  units: number = 100,
-): Promise<{ success: boolean; error?: string }> {
-  const k = key(userId, accountId);
-  if (processes.has(k)) {
-    return { success: false, error: "Session already running for this account" };
-  }
-
-  const child = spawn(TSX, [
-    join(PROJECT_ROOT, "src/live/runner.ts"),
-    `--user=${userEmail}`,
-    `--account=${accountId}`,
-    `--strategy=${strategy}`,
-    `--units=${units}`,
-  ], {
-    cwd: PROJECT_ROOT,
-    stdio: ["ignore", "pipe", "pipe"],
-    detached: false,
-  });
-
-  const managed: ManagedProcess = {
-    process: child,
-    userId,
-    accountId,
-    type: "live",
-    startedAt: new Date().toISOString(),
-    output: [],
-  };
-
-  const appendOutput = (data: Buffer) => {
-    const lines = data.toString().split("\n").filter(Boolean);
-    managed.output.push(...lines);
-    if (managed.output.length > MAX_OUTPUT_LINES) {
-      managed.output = managed.output.slice(-MAX_OUTPUT_LINES);
-    }
-  };
-
-  child.stdout?.on("data", appendOutput);
-  child.stderr?.on("data", appendOutput);
-
-  child.on("exit", () => {
-    processes.delete(k);
-  });
-
-  processes.set(k, managed);
-
-  // Wait briefly for early failures (e.g., hedging incompatibility, bad credentials).
-  // If the process exits within this window, surface the error to the caller.
-  const earlyExit = await Promise.race([
-    new Promise<number | null>((resolve) => child.on("exit", (code) => resolve(code))),
-    new Promise<"running">((resolve) => setTimeout(() => resolve("running"), 3000)),
-  ]);
-
-  if (earlyExit !== "running") {
-    processes.delete(k);
-    const stderr = managed.output.join("\n");
-    // Extract the meaningful error message (last line with "Error:")
-    const errorLine = managed.output.findLast((l) => l.includes("Error:"));
-    return { success: false, error: errorLine || stderr || "Process exited immediately" };
-  }
-
-  return { success: true };
-}
-
-export function stopLive(
-  userId: string,
-  accountId: string,
-): { success: boolean; error?: string } {
-  const k = key(userId, accountId);
-  const managed = processes.get(k);
-  if (!managed) {
-    return { success: false, error: "No running session for this account" };
-  }
-
-  // Send SIGTERM for graceful shutdown (closes positions)
-  managed.process.kill("SIGTERM");
-  return { success: true };
-}
 
 export interface BacktestOptions {
   spreadMult?: number;
@@ -227,23 +326,3 @@ export function clearFinishedBacktests(userId: string): void {
     }
   }
 }
-
-export function getRunningSession(userId: string, accountId: string): ManagedProcess | null {
-  return processes.get(key(userId, accountId)) ?? null;
-}
-
-export function getUserSessions(userId: string): ManagedProcess[] {
-  return [...processes.values()].filter((p) => p.userId === userId);
-}
-
-export function isRunning(userId: string, accountId: string): boolean {
-  return processes.has(key(userId, accountId));
-}
-
-// Clean up all child processes on server exit.
-// Use "exit" instead of SIGINT/SIGTERM to avoid interfering with Vite's shutdown.
-process.on("exit", () => {
-  for (const [, managed] of processes) {
-    try { managed.process.kill("SIGTERM"); } catch { /* already dead */ }
-  }
-});

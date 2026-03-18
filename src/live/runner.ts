@@ -19,7 +19,7 @@ import { loadStrategy } from "../core/strategy-loader.js";
 import type { Config } from "../core/config.js";
 import type { Strategy } from "../core/strategy.js";
 import type { Tick } from "../core/types.js";
-import { writeFileSync, appendFileSync, mkdirSync, existsSync } from "fs";
+import { writeFileSync, appendFileSync, mkdirSync, existsSync, readFileSync } from "fs";
 import { join } from "path";
 
 const DATA_DIR = join(import.meta.dirname, "../../data");
@@ -27,6 +27,19 @@ const DATA_DIR = join(import.meta.dirname, "../../data");
 const DEFAULT_INSTRUMENTS = [
   "EUR_USD", "GBP_USD", "USD_JPY", "USD_CAD", "USD_CHF", "AUD_USD", "NZD_USD",
 ];
+
+export interface SessionFile {
+  sessionId: string;
+  pid: number;
+  userId: string;
+  accountId: string;
+  strategy: string;
+  config: Record<string, unknown>;
+  status: "starting" | "running" | "stopped" | "error";
+  startedAt: string;
+  lastHeartbeat: string;
+  error?: string;
+}
 
 interface LogEntry {
   timestamp: string;
@@ -61,6 +74,8 @@ class LiveRunner {
   private logFile: string;
   private tradesFile: string;
   private stateFile: string;
+  private sessionFilePath: string | null;
+  private sessionData: SessionFile | null = null;
   private tickCount = 0;
   private lastStatusTime = 0;
   private stream: { close: () => void } | null = null;
@@ -73,10 +88,12 @@ class LiveRunner {
     account: { accountId: string; label: string },
     userId: string,
     strategy: Strategy,
+    sessionFilePath: string | null = null,
   ) {
     this.broker = new OandaBroker(config);
     this.accountLabel = account.label;
     this.strategy = strategy;
+    this.sessionFilePath = sessionFilePath;
 
     this.liveDir = getLiveDir(userId, account.accountId);
     if (!existsSync(this.liveDir)) mkdirSync(this.liveDir, { recursive: true });
@@ -85,6 +102,23 @@ class LiveRunner {
     this.tradesFile = join(this.liveDir, "trades.jsonl");
     const dateStr = new Date().toISOString().slice(0, 10);
     this.logFile = join(this.liveDir, `${dateStr}.jsonl`);
+  }
+
+  private updateSessionFile(updates: Partial<SessionFile>): void {
+    if (!this.sessionFilePath) return;
+    try {
+      if (this.sessionData) {
+        Object.assign(this.sessionData, updates);
+      } else if (existsSync(this.sessionFilePath)) {
+        this.sessionData = JSON.parse(readFileSync(this.sessionFilePath, "utf-8"));
+        Object.assign(this.sessionData!, updates);
+      } else {
+        return;
+      }
+      writeFileSync(this.sessionFilePath, JSON.stringify(this.sessionData, null, 2));
+    } catch {
+      // Don't crash if session file write fails
+    }
   }
 
   private writeState(timestamp: number): void {
@@ -98,6 +132,7 @@ class LiveRunner {
         strategyName: this.strategy.name,
       };
       writeFileSync(this.stateFile, JSON.stringify(state, null, 2));
+      this.updateSessionFile({ lastHeartbeat: new Date(timestamp).toISOString() });
     } catch {
       // Don't crash the runner if state write fails
     }
@@ -144,6 +179,8 @@ class LiveRunner {
     console.log(`Instruments:     ${instruments.length} (${instruments.slice(0, 5).join(", ")}${instruments.length > 5 ? "..." : ""})`);
     console.log(`Log dir:         ${this.liveDir}`);
     console.log(`\nStreaming prices... (Ctrl+C to stop)\n`);
+
+    this.updateSessionFile({ status: "running", pid: process.pid, lastHeartbeat: new Date().toISOString() });
 
     const ctx = { broker: this.broker };
     await this.strategy.init(ctx);
@@ -323,21 +360,36 @@ class LiveRunner {
     }
 
     await this.strategy.dispose();
+    this.updateSessionFile({ status: "stopped", lastHeartbeat: new Date().toISOString() });
   }
 }
 
 // --- CLI ---
 
-const userFlag = process.argv.find((a) => a.startsWith("--user="))?.split("=")[1];
-const accountFlag = process.argv.find((a) => a.startsWith("--account="))?.split("=")[1];
-const strategyFlag = process.argv.find((a) => a.startsWith("--strategy="))?.split("=")[1];
-const unitsFlag = parseInt(
-  process.argv.find((a) => a.startsWith("--units="))?.split("=")[1] ?? "100",
-  10,
-);
+function getFlag(name: string): string | undefined {
+  return process.argv.find((a) => a.startsWith(`--${name}=`))?.split("=").slice(1).join("=");
+}
+
+function getFlagNumber(name: string, defaultValue: number): number {
+  const raw = getFlag(name);
+  if (raw == null) return defaultValue;
+  const n = parseFloat(raw);
+  return isNaN(n) ? defaultValue : n;
+}
+
+const userFlag = getFlag("user");
+const accountFlag = getFlag("account");
+const strategyFlag = getFlag("strategy");
+const unitsFlag = getFlagNumber("units", 100);
+const stopFracFlag = getFlag("stop-frac");
+const skipDaysFlag = getFlag("skip-days");
+const trailActivateFlag = getFlag("trail-activate");
+const trailDistFlag = getFlag("trail-dist");
+const pairsFlag = getFlag("pairs");
+const sessionFileFlag = getFlag("session-file");
 
 if (!userFlag || !strategyFlag || !accountFlag) {
-  console.error("Usage: npm run live --user=<email> --strategy=<name> --account=<oanda-id> [--units=100]");
+  console.error("Usage: npm run live --user=<email> --strategy=<name> --account=<oanda-id> [--units=100] [--stop-frac=1.0] [--skip-days=5] [--trail-activate=0.5] [--trail-dist=0.3] [--pairs=EUR_USD,GBP_USD] [--session-file=path]");
   if (!userFlag) console.error("  Missing: --user");
   if (!strategyFlag) console.error("  Missing: --strategy");
   if (!accountFlag) console.error("  Missing: --account");
@@ -350,11 +402,19 @@ if (!user) {
   process.exit(1);
 }
 
-const config = getConfigForUser(user.id, accountFlag);
+const oandaConfig = getConfigForUser(user.id, accountFlag);
 
 async function main() {
-  const strategy = await loadStrategy(user!.id, strategyFlag!, { units: unitsFlag });
-  const runner = new LiveRunner(config, { accountId: accountFlag!, label: accountFlag! }, user!.id, strategy);
+  // Build strategy config from CLI flags
+  const strategyConfig: Record<string, unknown> = { units: unitsFlag };
+  if (stopFracFlag != null) strategyConfig.stopRangeFraction = parseFloat(stopFracFlag);
+  if (skipDaysFlag != null) strategyConfig.skipDays = skipDaysFlag.split(",").map(Number);
+  if (trailActivateFlag != null) strategyConfig.trailActivateFraction = parseFloat(trailActivateFlag);
+  if (trailDistFlag != null) strategyConfig.trailDistanceFraction = parseFloat(trailDistFlag);
+  if (pairsFlag != null) strategyConfig.instruments = pairsFlag;
+
+  const strategy = await loadStrategy(user!.id, strategyFlag!, strategyConfig);
+  const runner = new LiveRunner(oandaConfig, { accountId: accountFlag!, label: accountFlag! }, user!.id, strategy, sessionFileFlag ?? null);
 
   process.on("SIGINT", async () => {
     await runner.stop();
@@ -371,5 +431,15 @@ async function main() {
 
 main().catch((err) => {
   console.error("Fatal error:", err);
+  // Update session file with error status
+  if (sessionFileFlag && existsSync(sessionFileFlag)) {
+    try {
+      const session = JSON.parse(readFileSync(sessionFileFlag, "utf-8"));
+      session.status = "error";
+      session.error = err instanceof Error ? err.message : String(err);
+      session.lastHeartbeat = new Date().toISOString();
+      writeFileSync(sessionFileFlag, JSON.stringify(session, null, 2));
+    } catch { /* ignore */ }
+  }
   process.exit(1);
 });

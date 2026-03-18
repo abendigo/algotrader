@@ -194,11 +194,10 @@
 		actionMessage = "";
 		actionError = "";
 
-		const units = (liveConfig.units as number) || 100;
 		const res = await fetch("/api/live/start", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ accountId: liveAccountId, strategy: liveStrategy, units }),
+			body: JSON.stringify({ accountId: liveAccountId, strategy: liveStrategy, config: liveConfig }),
 		});
 
 		const result = await res.json();

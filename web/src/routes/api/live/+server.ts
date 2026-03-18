@@ -2,7 +2,7 @@ import { json } from "@sveltejs/kit";
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { join } from "path";
 import type { RequestHandler } from "./$types.js";
-import { isRunning, getUserSessions } from "$lib/server/processes.js";
+import { discoverSessions, cleanSession } from "$lib/server/processes.js";
 
 const DATA_DIR = join(import.meta.dirname, "../../../../../data");
 
@@ -18,47 +18,69 @@ export const GET: RequestHandler = ({ url, locals }) => {
   const accountId = url.searchParams.get("account");
 
   if (type === "sessions") {
-    // Discover all active sessions for this user
+    // Discover sessions from session files + state.json for display info
+    const sessionFiles = discoverSessions(user.id);
     const liveDir = getUserLiveDir(user.id);
-    if (!existsSync(liveDir)) return json([]);
 
     const sessions = [];
-    for (const dir of readdirSync(liveDir)) {
-      const stateFile = join(liveDir, dir, "state.json");
-      if (!existsSync(stateFile)) continue;
 
-      try {
-        const state = JSON.parse(readFileSync(stateFile, "utf-8"));
-        const stateAge = Date.now() - new Date(state.timestamp).getTime();
-        state.stale = stateAge > 30_000;
-        state.accountId = dir;
-        state.accountLabel = dir;
-        state.managed = isRunning(user.id, dir);
+    // Build a set of accounts with active session files
+    const sessionAccountIds = new Set<string>();
 
-        sessions.push(state);
-      } catch {
-        // skip malformed state files
+    for (const sf of sessionFiles) {
+      sessionAccountIds.add(sf.accountId);
+
+      // Try to enrich with state.json data
+      const stateFile = join(liveDir, sf.accountId, "state.json");
+      let state: Record<string, unknown> = {};
+      if (existsSync(stateFile)) {
+        try {
+          state = JSON.parse(readFileSync(stateFile, "utf-8"));
+        } catch { /* ignore */ }
+      }
+
+      const isActive = sf.status === "running" || sf.status === "starting";
+      const stateAge = state.timestamp
+        ? Date.now() - new Date(state.timestamp as string).getTime()
+        : Infinity;
+
+      sessions.push({
+        ...state,
+        accountId: sf.accountId,
+        accountLabel: sf.accountId,
+        running: isActive,
+        stale: isActive ? stateAge > 30_000 : true,
+        managed: isActive,
+        tickCount: (state.tickCount as number) ?? 0,
+        timestamp: (state.timestamp as string) ?? sf.startedAt,
+        strategyName: (state.strategyName as string) ?? (sf.status === "starting" ? "Starting..." : sf.strategy),
+        sessionId: sf.sessionId,
+        sessionStatus: sf.status,
+        sessionError: sf.error,
+      });
+    }
+
+    // Also pick up accounts with state.json but no session file (e.g., CLI-started without session file)
+    if (existsSync(liveDir)) {
+      for (const dir of readdirSync(liveDir)) {
+        if (sessionAccountIds.has(dir)) continue;
+        const stateFile = join(liveDir, dir, "state.json");
+        if (!existsSync(stateFile)) continue;
+
+        try {
+          const state = JSON.parse(readFileSync(stateFile, "utf-8"));
+          const stateAge = Date.now() - new Date(state.timestamp).getTime();
+          if (stateAge > 30_000) continue; // skip stale sessions without session files
+          state.accountId = dir;
+          state.accountLabel = dir;
+          state.managed = false;
+          state.stale = false;
+          sessions.push(state);
+        } catch { /* skip */ }
       }
     }
 
-    // Include managed processes that have no state file yet (e.g., still starting up)
-    const sessionAccountIds = new Set(sessions.map((s: any) => s.accountId));
-    for (const managed of getUserSessions(user.id)) {
-      if (!sessionAccountIds.has(managed.accountId)) {
-        sessions.push({
-          accountId: managed.accountId,
-          accountLabel: managed.accountId,
-          running: true,
-          stale: false,
-          managed: true,
-          tickCount: 0,
-          timestamp: managed.startedAt,
-          strategyName: "Starting...",
-        });
-      }
-    }
-
-    // Only return sessions that are either actively managed or recently updated
+    // Only return active or recently-active sessions
     const activeSessions = sessions.filter(
       (s: any) => s.managed || !s.stale,
     );
