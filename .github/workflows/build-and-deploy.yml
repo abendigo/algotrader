@@ -3,6 +3,12 @@ name: Build and Deploy
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "*.md"
+      - "docs/**"
+      - "LICENSE"
+      - ".github/workflows/**"
+      - "src/docs/**"
 
 env:
   REGISTRY: ghcr.io
