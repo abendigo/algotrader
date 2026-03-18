@@ -43,5 +43,12 @@
 - `npm run live-service --user=<email>` — start per-user live trading service (shared stream, HTTP API)
 - `npm run gen-docs` — regenerate strategy documentation from TypeScript interfaces (run after changing strategy/broker/types interfaces)
 
+## Docker
+- `docker compose build` — build the image
+- `docker compose up -d` — start the web app container
+- Live service containers are created automatically by the web app via Docker API
+- Local dev (`npm run dev` in `web/`) works without Docker — set `DOCKER_MODE` is not set by default
+- Environment variables: `DOCKER_MODE`, `DOCKER_NETWORK`, `LIVE_IMAGE`, `LIVE_PORT`, `DATA_VOLUME`
+
 ## Maintenance Notes
 - **Strategy interface changes** — when modifying `src/core/strategy.ts`, `src/core/broker.ts`, or `src/core/types.ts`, run `npm run gen-docs` to regenerate the docs JSON. The example strategy in `src/docs/examples/` and snippets in `src/docs/snippets/` are type-checked, so `npm run typecheck` will catch breakage automatically.
