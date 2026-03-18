@@ -50,7 +50,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Notify Portainer
-        if: success()
+        if: success() && secrets.PORTAINER_WEBHOOK_URL != ''
         run: |
           curl -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}" \
             --max-time 10 \
