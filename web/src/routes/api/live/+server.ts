@@ -30,10 +30,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     for (const sf of sessionFiles) {
       sessionAccountIds.add(sf.accountId);
 
-      // Try to enrich with per-strategy state file, fall back to legacy state.json
-      const strategyStateFile = join(liveDir, sf.accountId, `state-${sf.strategy}.json`);
+      // Try to enrich with per-session state file, fall back to legacy state.json
+      const sessionStateFile = join(liveDir, sf.accountId, `state-${sf.sessionId}.json`);
       const legacyStateFile = join(liveDir, sf.accountId, "state.json");
-      const stateFile = existsSync(strategyStateFile) ? strategyStateFile : legacyStateFile;
+      const stateFile = existsSync(sessionStateFile) ? sessionStateFile : legacyStateFile;
       let state: Record<string, unknown> = {};
       if (existsSync(stateFile)) {
         try {
