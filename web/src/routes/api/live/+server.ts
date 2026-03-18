@@ -30,8 +30,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     for (const sf of sessionFiles) {
       sessionAccountIds.add(sf.accountId);
 
-      // Try to enrich with state.json data
-      const stateFile = join(liveDir, sf.accountId, "state.json");
+      // Try to enrich with per-strategy state file, fall back to legacy state.json
+      const strategyStateFile = join(liveDir, sf.accountId, `state-${sf.strategy}.json`);
+      const legacyStateFile = join(liveDir, sf.accountId, "state.json");
+      const stateFile = existsSync(strategyStateFile) ? strategyStateFile : legacyStateFile;
       let state: Record<string, unknown> = {};
       if (existsSync(stateFile)) {
         try {
@@ -90,7 +92,14 @@ export const GET: RequestHandler = async ({ url, locals }) => {
   if (type === "state") {
     if (!accountId) return json({ error: "account param required" }, { status: 400 });
 
-    const stateFile = join(getUserLiveDir(user.id), accountId, "state.json");
+    const strategy = url.searchParams.get("strategy");
+    const accountDir = join(getUserLiveDir(user.id), accountId);
+    const strategyStateFile = strategy ? join(accountDir, `state-${strategy}.json`) : null;
+    const legacyStateFile = join(accountDir, "state.json");
+    const stateFile = (strategyStateFile && existsSync(strategyStateFile))
+      ? strategyStateFile
+      : legacyStateFile;
+
     if (!existsSync(stateFile)) {
       return json({ running: false, message: "Live runner not active" });
     }
