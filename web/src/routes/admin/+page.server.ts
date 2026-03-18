@@ -2,6 +2,7 @@ import { fail } from "@sveltejs/kit";
 import { readFileSync, existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { getDataSummary } from "$lib/server/data.js";
+import { ServiceClient, readServiceDiscovery } from "../../../../src/live/service-client.js";
 
 const DATA_DIR = join(import.meta.dirname, "../../../../data");
 const BROKERS_DIR = join(DATA_DIR, "brokers");
@@ -54,11 +55,60 @@ function getDataDiskUsage(): { path: string; size: string; files: number } {
   return { path: BROKERS_DIR, size: sizeStr, files: totalFiles };
 }
 
-export function load() {
+interface LiveServiceInfo {
+  userId: string;
+  email: string;
+  port: number;
+  uptime?: number;
+  streamConnected?: boolean;
+  sessionCount?: number;
+  ticksReceived?: number;
+  memoryUsage?: number;
+  error?: string;
+}
+
+async function discoverServices(): Promise<LiveServiceInfo[]> {
+  const usersDir = join(DATA_DIR, "users");
+  if (!existsSync(usersDir)) return [];
+
+  const emailMap = new Map<string, string>();
+  for (const u of loadUserSummaries()) emailMap.set(u.id, u.email);
+
+  const services: LiveServiceInfo[] = [];
+  for (const userId of readdirSync(usersDir)) {
+    const discovery = readServiceDiscovery(userId);
+    if (!discovery) continue;
+
+    const info: LiveServiceInfo = {
+      userId,
+      email: emailMap.get(userId) ?? userId,
+      port: discovery.port,
+    };
+
+    try {
+      const client = new ServiceClient(discovery.port);
+      const status = await client.getStatus();
+      info.uptime = status.uptime;
+      info.streamConnected = status.streamConnected;
+      info.sessionCount = status.sessions;
+      info.ticksReceived = status.ticksReceived;
+      info.memoryUsage = status.memoryUsage;
+    } catch {
+      info.error = "Unresponsive";
+    }
+
+    services.push(info);
+  }
+
+  return services;
+}
+
+export async function load() {
   return {
     users: loadUserSummaries(),
     data: getDataSummary(),
     disk: getDataDiskUsage(),
+    services: await discoverServices(),
   };
 }
 

@@ -3,6 +3,42 @@
 	import { invalidateAll } from "$app/navigation";
 
 	let { data, form } = $props();
+	let stoppingService = $state<string | null>(null);
+
+	// Auto-refresh services every 5 seconds
+	let servicesData = $state(data.services);
+	$effect(() => {
+		servicesData = data.services;
+		const interval = setInterval(async () => {
+			try {
+				const res = await fetch("/api/admin/services");
+				if (res.ok) servicesData = await res.json();
+			} catch { /* ignore */ }
+		}, 5000);
+		return () => clearInterval(interval);
+	});
+
+	function formatUptime(ms: number | undefined): string {
+		if (!ms) return "-";
+		const sec = Math.floor(ms / 1000);
+		const h = Math.floor(sec / 3600);
+		const m = Math.floor((sec % 3600) / 60);
+		if (h > 0) return `${h}h ${m}m`;
+		return `${m}m`;
+	}
+
+	async function stopService(userId: string) {
+		stoppingService = userId;
+		try {
+			await fetch("/api/admin/services", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ userId }),
+			});
+		} finally {
+			stoppingService = null;
+		}
+	}
 </script>
 
 <div class="admin-page">
@@ -60,6 +96,58 @@
 				{/each}
 			</tbody>
 		</table>
+	</section>
+
+	<section>
+		<h2>Live Services</h2>
+		{#if servicesData.length === 0}
+			<p class="empty">No live services running</p>
+		{:else}
+			<table>
+				<thead>
+					<tr>
+						<th>User</th>
+						<th>Port</th>
+						<th>Uptime</th>
+						<th>Stream</th>
+						<th>Sessions</th>
+						<th>Ticks</th>
+						<th>Memory</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each servicesData as svc}
+						<tr>
+							<td>{svc.email}</td>
+							<td class="mono">{svc.port}</td>
+							<td>{formatUptime(svc.uptime)}</td>
+							<td>
+								{#if svc.error}
+									<span class="stream-status disconnected">{svc.error}</span>
+								{:else if svc.streamConnected}
+									<span class="stream-status connected">Connected</span>
+								{:else}
+									<span class="stream-status reconnecting">Reconnecting</span>
+								{/if}
+							</td>
+							<td>{svc.sessionCount ?? "-"}</td>
+							<td>{svc.ticksReceived?.toLocaleString() ?? "-"}</td>
+							<td>{svc.memoryUsage ? `${svc.memoryUsage} MB` : "-"}</td>
+							<td>
+								<button
+									class="btn-sm btn-stop"
+									disabled={stoppingService === svc.userId}
+									onclick={() => stopService(svc.userId)}
+								>
+									{stoppingService === svc.userId ? "Stopping..." : "Stop"}
+								</button>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		{/if}
 	</section>
 
 	<section>
@@ -215,4 +303,19 @@
 		border-color: #30363d;
 	}
 	.data-table { margin-bottom: 4px; }
+	.empty { color: #8b949e; font-size: 0.9em; font-style: italic; }
+	.stream-status {
+		font-size: 0.8em;
+		font-weight: 600;
+		padding: 1px 6px;
+		border-radius: 3px;
+	}
+	.stream-status.connected { background: #0d2818; color: #3fb950; }
+	.stream-status.reconnecting { background: #3d2e00; color: #d29922; }
+	.stream-status.disconnected { background: #5d1a1a; color: #f85149; }
+	.btn-stop {
+		background: transparent;
+		color: #f85149;
+		border-color: #f85149;
+	}
 </style>
