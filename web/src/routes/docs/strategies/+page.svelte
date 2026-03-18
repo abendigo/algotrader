@@ -299,7 +299,7 @@ export class SimpleSpreadStrategy implements Strategy {
 					<tr>
 						<td><code>#core/strategy.js</code></td>
 						<td><code>src/core/strategy.ts</code></td>
-						<td><code>Strategy</code>, <code>StrategyContext</code>, <code>StrategyStateSnapshot</code>, <code>StrategyIndicator</code>, <code>StrategyPosition</code>, <code>HedgingMode</code></td>
+						<td><code>Strategy</code>, <code>StrategyContext</code>, <code>StrategyStateSnapshot</code>, <code>StrategyIndicator</code>, <code>StrategyPosition</code>, <code>HedgingMode</code>, <code>RecoveryConfig</code></td>
 					</tr>
 					<tr>
 						<td><code>#core/types.js</code></td>
@@ -358,6 +358,39 @@ if (ctx.broker instanceof BacktestBroker) {
 			Signal snapshots are attached to trades in the backtest report, making it easier to
 			debug entry/exit decisions.
 		</p>
+	</section>
+
+	<section id="live-recovery">
+		<h2>Live Recovery</h2>
+		<p>
+			When a strategy is restarted (service restart, crash recovery), the service uses the
+			<code>recovery</code> field in <code>strategyMeta</code> to decide how to restore state.
+			If omitted, the default is <code>"clean"</code> (restart fresh).
+		</p>
+		<pre><code>{`// In strategyMeta:
+recovery: { mode: "clean" }            // Default — restart fresh
+recovery: { mode: "backfill", lookback: 120, granularity: "M1" }  // Replay candles
+recovery: { mode: "checkpoint" }        // Serialize/restore state
+recovery: { mode: "custom" }            // Strategy handles recovery
+
+// For "backfill" mode, ctx.backfilling is true during candle replay:
+async onTick(ctx: StrategyContext, tick: Tick) {
+  if (ctx.backfilling) {
+    // Update indicators but skip order placement
+    this.updateIndicators(tick);
+    return;
+  }
+  // Normal trading logic...
+}
+
+// For "checkpoint" mode, implement checkpoint() and restore():
+checkpoint() { return { zScores: this.zScores, lastPrices: this.lastPrices }; }
+restore(state: any) { this.zScores = state.zScores; this.lastPrices = state.lastPrices; }
+
+// For "custom" mode, implement recover():
+async recover(ctx: StrategyContext, positions: Position[]) {
+  // Fetch your own candles, rebuild state, check existing positions...
+}`}</code></pre>
 	</section>
 
 	<section id="tips">
