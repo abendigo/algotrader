@@ -12,7 +12,7 @@
 import { existsSync, readdirSync, readFileSync } from "fs";
 import { join, resolve } from "path";
 import { pathToFileURL } from "url";
-import type { Strategy } from "./strategy.js";
+import type { Strategy, RecoveryConfig } from "./strategy.js";
 
 export interface ConfigFieldDef {
   label: string;
@@ -34,6 +34,7 @@ export interface StrategyMeta {
   name: string;
   description?: string;
   configFields?: ConfigFields;
+  recovery?: RecoveryConfig;
   source: "user" | "shared";
 }
 
@@ -123,12 +124,14 @@ function extractMeta(filePath: string, id: string, source: "user" | "shared"): S
       name?: string;
       description?: string;
       configFields?: ConfigFields;
+      recovery?: RecoveryConfig;
     };
     return {
       id,
       name: meta.name ?? id.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
       description: meta.description,
       configFields: meta.configFields,
+      recovery: meta.recovery,
       source,
     };
   } catch {

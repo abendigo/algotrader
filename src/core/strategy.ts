@@ -1,10 +1,19 @@
 import type { Broker } from "./broker.js";
-import type { Tick } from "./types.js";
+import type { Tick, Granularity, Position } from "./types.js";
 
 /** Context passed to a strategy on each tick */
 export interface StrategyContext {
   broker: Broker;
+  /** True during candle replay (backfill recovery) — skip order placement */
+  backfilling?: boolean;
 }
+
+/** Recovery mode configuration for live trading */
+export type RecoveryConfig =
+  | { mode: "clean" }
+  | { mode: "backfill"; lookback: number; granularity: Granularity }
+  | { mode: "checkpoint" }
+  | { mode: "custom" };
 
 /**
  * Whether the strategy requires, forbids, or allows hedging accounts.
@@ -58,4 +67,13 @@ export interface Strategy {
 
   /** Return current strategy state for live monitoring */
   getState(): StrategyStateSnapshot;
+
+  /** For "checkpoint" recovery: return serializable state */
+  checkpoint?(): unknown;
+
+  /** For "checkpoint" recovery: restore from serialized state */
+  restore?(state: unknown): void;
+
+  /** For "custom" recovery: strategy handles its own recovery */
+  recover?(ctx: StrategyContext, positions: Position[]): Promise<void>;
 }
