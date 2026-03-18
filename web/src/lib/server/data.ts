@@ -94,6 +94,11 @@ export function getDataSummary(): {
 		byBroker.set(d.broker, list);
 	}
 
+	// Always show oanda even if no data collected yet
+	if (!byBroker.has("oanda")) {
+		byBroker.set("oanda", []);
+	}
+
 	const brokers = [...byBroker.entries()].map(([name, items]) => {
 		const byGran = new Map<string, DatasetInfo[]>();
 		for (const d of items) {
