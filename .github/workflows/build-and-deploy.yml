@@ -7,7 +7,6 @@ on:
       - "*.md"
       - "docs/**"
       - "LICENSE"
-      - ".github/workflows/**"
       - "src/docs/**"
 
 env:
