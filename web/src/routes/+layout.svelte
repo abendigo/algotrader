@@ -1,5 +1,7 @@
 <script lang="ts">
+	declare const __GIT_SHA__: string;
 	let { children, data } = $props();
+	const version = __GIT_SHA__;
 </script>
 
 <svelte:head>
@@ -9,7 +11,7 @@
 <div class="app">
 	<nav>
 		<div class="nav-inner">
-			<a href="/" class="logo">Algotrader</a>
+			<a href="/" class="logo">Algotrader</a><span class="version">{version}</span>
 			<div class="links">
 				{#if data.user}
 					<a href="/dashboard">Dashboard</a>
@@ -69,6 +71,12 @@
 		font-weight: 700;
 		font-size: 1.1em;
 		color: #c9d1d9;
+	}
+	.version {
+		font-size: 0.7em;
+		color: #484f58;
+		margin-left: 8px;
+		font-family: monospace;
 	}
 	.links {
 		display: flex;
