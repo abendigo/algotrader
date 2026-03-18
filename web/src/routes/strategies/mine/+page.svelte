@@ -225,7 +225,7 @@
 		<div class="error">{actionError}</div>
 	{/if}
 
-	{#if data.strategies.length === 0}
+	{#if data.userStrategies.length === 0}
 		<div class="empty">
 			<p>You don't have any strategies yet.</p>
 			<p>Browse <a href="/strategies/shared">shared strategies</a> to copy one, or upload your own.</p>
@@ -240,7 +240,7 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each data.strategies as strategy}
+				{#each data.userStrategies as strategy}
 					<tr>
 						<td class="name">{strategy.name}</td>
 						<td class="mono">{strategy.filename}</td>

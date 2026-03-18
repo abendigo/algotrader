@@ -24,10 +24,11 @@ export async function load({ locals }) {
   );
 
   const allStrategies = listAllStrategies(userId);
-  const strategies = allStrategies.filter((s) => s.source === "user");
+  const userStrategies = allStrategies.filter((s) => s.source === "user");
 
   return {
-    strategies,
+    strategies: allStrategies,
+    userStrategies,
     accounts,
     availableGranularities,
   };
