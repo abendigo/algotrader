@@ -207,6 +207,8 @@ export class SessionManager {
 
   // --- Internal ---
 
+  private streamConfigured = false;
+
   private async createSession(
     sessionId: string,
     accountId: string,
@@ -215,6 +217,13 @@ export class SessionManager {
   ): Promise<LiveSession> {
     const oandaConfig = getConfigForUser(this.userEmail, accountId);
     const broker = new OandaBroker(oandaConfig);
+
+    // Configure the shared stream with the first real account ID we see
+    if (!this.streamConfigured) {
+      this.streamManager.setConfig(oandaConfig);
+      this.streamConfigured = true;
+    }
+
     const strategy = await loadStrategy(this.userId, strategyName, config);
 
     // Extract recovery config from strategyMeta if available
@@ -278,6 +287,9 @@ export class SessionManager {
 
   private async initializeSession(session: LiveSession, isRestart: boolean): Promise<void> {
     const { strategy, ctx, broker } = session;
+
+    // Write fresh state immediately so the web UI doesn't show stale data
+    this.writeState(session, Date.now());
 
     // Enforce hedging compatibility
     const account = await broker.getAccountSummary();

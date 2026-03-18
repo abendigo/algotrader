@@ -9,6 +9,7 @@
 import { OandaClient } from "../brokers/oanda/client.js";
 import type { Config } from "../core/config.js";
 import type { Tick } from "../core/types.js";
+export type { Config };
 
 interface StreamListener {
   sessionId: string;
@@ -17,7 +18,7 @@ interface StreamListener {
 }
 
 export class StreamManager {
-  private client: OandaClient;
+  private client: OandaClient | null = null;
   private listeners = new Map<string, StreamListener>();
   private stream: { close: () => void } | null = null;
   private currentInstruments = new Set<string>();
@@ -33,7 +34,11 @@ export class StreamManager {
   private static WATCHDOG_TIMEOUT_MS = 120_000;
   private static MAX_BACKOFF_MS = 60_000;
 
-  constructor(config: Config) {
+  /**
+   * Set (or update) the OANDA config used for the stream connection.
+   * Must be called with a real account ID before the first stream connects.
+   */
+  setConfig(config: Config): void {
     this.client = new OandaClient(config);
   }
 
@@ -128,6 +133,10 @@ export class StreamManager {
   /** Connect (or reconnect) to the OANDA stream. */
   private connect(): void {
     if (this.closing) return;
+    if (!this.client) {
+      console.error("[StreamManager] Cannot connect: no OANDA config set. Call setConfig() first.");
+      return;
+    }
 
     // Close existing stream
     if (this.stream) {

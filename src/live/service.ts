@@ -18,7 +18,6 @@
 import { writeFileSync, unlinkSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { findUser } from "../core/users.js";
-import { getConfigForUser } from "../core/config.js";
 import { StreamManager } from "./stream-manager.js";
 import { SessionManager } from "./session-manager.js";
 import { createServiceApi } from "./service-api.js";
@@ -53,14 +52,9 @@ if (!existsSync(userDir)) mkdirSync(userDir, { recursive: true });
 
 const discoveryPath = join(userDir, "live-service.json");
 
-// We need a default account to create the StreamManager's OANDA client.
-// The stream uses the first account's API key (all accounts share the same key for a user).
-// Find a valid account config — we'll use the first account that works.
-// For the stream, we just need the API key — the account ID doesn't matter for pricing streams.
-// Use a placeholder account ID; strategies will use their own accounts.
-let streamConfig = getConfigForUser(user.email, "stream-placeholder");
-
-const streamManager = new StreamManager(streamConfig);
+// StreamManager is created without a config — it gets configured lazily
+// with the first session's real OANDA account ID.
+const streamManager = new StreamManager();
 let sessionManager: SessionManager;
 let shuttingDown = false;
 
