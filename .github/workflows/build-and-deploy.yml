@@ -50,16 +50,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       - name: Notify Portainer
-        if: success()
+        if: env.PORTAINER_WEBHOOK_URL != ''
         env:
           PORTAINER_WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
-        run: |
-          if [ -n "$PORTAINER_WEBHOOK_URL" ]; then
-            curl -X POST "$PORTAINER_WEBHOOK_URL" \
-              --max-time 10 \
-              --retry 3 \
-              --retry-delay 5 \
-              -s -o /dev/null -w "%{http_code}"
-          else
-            echo "PORTAINER_WEBHOOK_URL not set, skipping"
-          fi
+        run: curl -s -o /dev/null -w "%{http_code}" -X POST "$PORTAINER_WEBHOOK_URL"
