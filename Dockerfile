@@ -1,7 +1,7 @@
 # Multi-stage build: one image, two entrypoints (web app + live service)
 
 # --- Stage 1: Install dependencies and build ---
-FROM node:22-alpine AS build
+FROM node:22-slim AS build
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ RUN npx tsx src/tools/gen-strategy-docs.ts
 RUN cd web && npm run build
 
 # --- Stage 2: Production runtime ---
-FROM node:22-alpine
+FROM node:22-slim
 
 WORKDIR /app
 
