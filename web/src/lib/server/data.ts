@@ -2,7 +2,9 @@ import { readdirSync, existsSync, statSync } from 'fs';
 import { join } from 'path';
 import { GRANULARITIES_SORTED, GRANULARITY_SECONDS } from '../../../../src/core/types.js';
 
-const DATA_ROOT = join(import.meta.dirname, '../../../../data/brokers');
+import { DATA_DIR } from './paths.js';
+
+const DATA_ROOT = join(DATA_DIR, 'brokers');
 
 export interface DatasetInfo {
 	broker: string;

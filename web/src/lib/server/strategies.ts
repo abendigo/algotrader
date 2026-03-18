@@ -4,7 +4,7 @@ import { listStrategies, type StrategyMeta, type ConfigFields, type ConfigFieldD
 
 export type { StrategyMeta, ConfigFields, ConfigFieldDef };
 
-const DATA_DIR = join(import.meta.dirname, "../../../../data");
+import { DATA_DIR } from "./paths.js";
 const SHARED_DIR = join(DATA_DIR, "shared/strategies");
 
 export function listAllStrategies(userId: string): StrategyMeta[] {

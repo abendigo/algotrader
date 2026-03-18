@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join } from 'path';
 
-const DATA_DIR = join(import.meta.dirname, '../../../../data');
+import { DATA_DIR } from './paths.js';
 const USERS_DIR = join(DATA_DIR, 'users');
 
 export interface ReportMetrics {

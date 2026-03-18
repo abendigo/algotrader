@@ -4,7 +4,8 @@ import { join } from "path";
 import type { RequestHandler } from "./$types.js";
 import { ServiceClient, readServiceDiscovery } from "../../../../../../src/live/service-client.js";
 
-const DATA_DIR = join(import.meta.dirname, "../../../../../../data");
+import { DATA_DIR } from "$lib/server/paths.js";
+
 const USERS_FILE = join(DATA_DIR, "users.json");
 
 interface ServiceInfo {

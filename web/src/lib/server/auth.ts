@@ -3,7 +3,7 @@ import { join } from "path";
 import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "crypto";
 import { hash, verify } from "@node-rs/argon2";
 
-const DATA_DIR = join(import.meta.dirname, "../../../../data");
+import { DATA_DIR } from "./paths.js";
 const USERS_FILE = join(DATA_DIR, "users.json");
 const SESSIONS_FILE = join(DATA_DIR, "sessions.json");
 

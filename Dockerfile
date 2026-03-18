@@ -16,6 +16,9 @@ RUN cd web && npm ci
 # Copy source
 COPY . .
 
+# Generate strategy docs from TypeScript interfaces
+RUN npx tsx src/tools/gen-strategy-docs.ts
+
 # Build web app
 RUN cd web && npm run build
 
@@ -49,5 +52,7 @@ VOLUME /app/data
 # Default entrypoint: web app
 # The startup script ensures data/shared exists and starts the node server
 ENV PORT=3000
+ENV DATA_DIR=/app/data
+ENV PROJECT_ROOT=/app
 EXPOSE 3000
 CMD ["sh", "-c", "cp -rn ./data-defaults/shared ./data/shared 2>/dev/null; node web/build/index.js"]

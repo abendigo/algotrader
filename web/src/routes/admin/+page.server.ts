@@ -4,7 +4,8 @@ import { join } from "path";
 import { getDataSummary } from "$lib/server/data.js";
 import { ServiceClient, readServiceDiscovery } from "../../../../src/live/service-client.js";
 
-const DATA_DIR = join(import.meta.dirname, "../../../../data");
+import { DATA_DIR } from "$lib/server/paths.js";
+
 const BROKERS_DIR = join(DATA_DIR, "brokers");
 const USERS_FILE = join(DATA_DIR, "users.json");
 

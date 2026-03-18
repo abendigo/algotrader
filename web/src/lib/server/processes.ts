@@ -22,8 +22,8 @@ import {
   getContainerHostname, getLivePort,
 } from "./docker.js";
 
-const PROJECT_ROOT = join(import.meta.dirname, "../../../..");
-const DATA_DIR = join(PROJECT_ROOT, "data");
+import { DATA_DIR, PROJECT_ROOT } from "./paths.js";
+
 const TSX = join(PROJECT_ROOT, "node_modules/.bin/tsx");
 
 // --- Session file helpers ---

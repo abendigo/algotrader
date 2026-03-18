@@ -4,7 +4,7 @@ import { join } from "path";
 import type { RequestHandler } from "./$types.js";
 import { discoverSessions, cleanSession } from "$lib/server/processes.js";
 
-const DATA_DIR = join(import.meta.dirname, "../../../../../data");
+import { DATA_DIR } from "$lib/server/paths.js";
 
 function getUserLiveDir(userId: string): string {
   return join(DATA_DIR, "users", userId, "live");
