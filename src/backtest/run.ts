@@ -18,23 +18,13 @@ import { createHash } from "crypto";
 import { join } from "path";
 import { findUser, getUserBacktestsDir } from "../core/users.js";
 import { loadStrategy } from "../core/strategy-loader.js";
-import type { Granularity } from "../core/types.js";
+import { GRANULARITY_SECONDS, type Granularity } from "../core/types.js";
 import { runBacktest, printResults } from "./engine.js";
 import { SPREADS } from "../data/spreads.js";
 import type { BacktestConfig } from "./types.js";
 
 const strategyName = process.argv[2] || "lead-lag";
 const granularity = (process.argv[3] || "M1") as Granularity;
-
-/** Seconds per candle for each granularity */
-const GRANULARITY_SECONDS: Record<string, number> = {
-  S5: 5, S10: 10, S15: 15, S30: 30,
-  M1: 60, M2: 120, M4: 240, M5: 300,
-  M10: 600, M15: 900, M30: 1800,
-  H1: 3600, H2: 7200, H3: 10800, H4: 14400,
-  H6: 21600, H8: 28800, H12: 43200,
-  D: 86400, W: 604800,
-};
 
 /**
  * Scale a value defined in M1 candles to the target granularity.

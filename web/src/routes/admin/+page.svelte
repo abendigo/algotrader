@@ -180,11 +180,11 @@
 				</thead>
 				<tbody>
 					{#each broker.granularities as gran}
-						<tr>
+						<tr class:no-data={gran.instruments === 0}>
 							<td class="mono">{gran.name}</td>
-							<td>{gran.instruments}</td>
-							<td>{gran.days}</td>
-							<td class="date">{gran.dateRange.from} to {gran.dateRange.to}</td>
+							<td>{gran.instruments || "—"}</td>
+							<td>{gran.days || "—"}</td>
+							<td class="date">{gran.dateRange.from ? `${gran.dateRange.from} to ${gran.dateRange.to}` : "—"}</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -303,6 +303,7 @@
 		border-color: #30363d;
 	}
 	.data-table { margin-bottom: 4px; }
+	.no-data td { color: #484f58; }
 	.empty { color: #8b949e; font-size: 0.9em; font-style: italic; }
 	.stream-status {
 		font-size: 0.8em;

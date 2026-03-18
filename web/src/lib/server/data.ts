@@ -1,5 +1,6 @@
 import { readdirSync, existsSync, statSync } from 'fs';
 import { join } from 'path';
+import { GRANULARITIES_SORTED, GRANULARITY_SECONDS } from '../../../../src/core/types.js';
 
 const DATA_ROOT = join(import.meta.dirname, '../../../../data/brokers');
 
@@ -99,16 +100,27 @@ export function getDataSummary(): {
 			byGran.set(d.granularity, list);
 		}
 
-		const granularities = [...byGran.entries()].map(([gName, gItems]) => {
-			const allDates = gItems.flatMap(i => [i.dateRange.from, i.dateRange.to]).sort();
+		// Show every OANDA granularity, sorted chronologically
+		const granularities = GRANULARITIES_SORTED.map((gName) => {
+			const gItems = byGran.get(gName);
+			if (gItems && gItems.length > 0) {
+				const allDates = gItems.flatMap(i => [i.dateRange.from, i.dateRange.to]).sort();
+				return {
+					name: gName,
+					instruments: gItems.length,
+					days: Math.max(...gItems.map(i => i.days)),
+					dateRange: {
+						from: allDates[0],
+						to: allDates[allDates.length - 1],
+					},
+				};
+			}
+			// No data for this granularity
 			return {
 				name: gName,
-				instruments: gItems.length,
-				days: Math.max(...gItems.map(i => i.days)),
-				dateRange: {
-					from: allDates[0],
-					to: allDates[allDates.length - 1],
-				},
+				instruments: 0,
+				days: 0,
+				dateRange: { from: "", to: "" },
 			};
 		});
 

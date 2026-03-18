@@ -11,7 +11,7 @@
 import { OandaClient } from "../brokers/oanda/client.js";
 import { findUser, getUserApiKey } from "../core/users.js";
 import type { Config } from "../core/config.js";
-import type { Candle, Granularity } from "../core/types.js";
+import { GRANULARITY_SECONDS, type Candle, type Granularity } from "../core/types.js";
 import { ALL_INSTRUMENTS } from "./instruments.js";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
@@ -21,22 +21,10 @@ const DATA_DIR = join(import.meta.dirname, "../../data/brokers/oanda");
 /** OANDA limits candle requests to 5000 per call. Paginate as needed. */
 const MAX_CANDLES_PER_REQUEST = 5000;
 
-/** Granularity to milliseconds */
-const GRANULARITY_MS: Record<string, number> = {
-  S5: 5_000,
-  S10: 10_000,
-  S15: 15_000,
-  S30: 30_000,
-  M1: 60_000,
-  M2: 120_000,
-  M5: 300_000,
-  M10: 600_000,
-  M15: 900_000,
-  M30: 1_800_000,
-  H1: 3_600_000,
-  H4: 14_400_000,
-  D: 86_400_000,
-};
+/** Granularity to milliseconds (derived from shared seconds constant) */
+const GRANULARITY_MS: Record<string, number> = Object.fromEntries(
+  Object.entries(GRANULARITY_SECONDS).map(([k, v]) => [k, v * 1000]),
+);
 
 /** Format a Date as YYYY-MM-DD in UTC */
 function formatDate(d: Date): string {
