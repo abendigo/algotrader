@@ -99,21 +99,33 @@ const backtestConfig: BacktestConfig = {
   accountCurrency,
 };
 
+// Build strategy config — combine hardcoded flags with generic --config.X overrides
+const strategyParams: Record<string, unknown> = {
+  units,
+  entryDelay,
+  rewardRatio: rewardRatio || 0,
+  instruments: pairsFlag ? pairsFlag.split(",") : undefined,
+  trailActivateFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-activate="))?.split("=")[1] ?? "2.0"),
+  trailDistanceFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-dist="))?.split("=")[1] ?? "1.0"),
+  ...(stopRangeFraction !== undefined && { stopRangeFraction }),
+  ...(skipDays !== undefined && { skipDays }),
+};
+// Strip undefined values
+for (const k of Object.keys(strategyParams)) {
+  if (strategyParams[k] === undefined) delete strategyParams[k];
+}
+// Generic config overrides: --config.key=value (e.g., --config.stopAtrMult=3.0)
+for (const arg of process.argv) {
+  const match = arg.match(/^--config\.(\w+)=(.+)$/);
+  if (match) {
+    const [, key, raw] = match;
+    const num = parseFloat(raw);
+    strategyParams[key] = isNaN(num) ? raw : num;
+  }
+}
+
 async function main() {
-  const strategy = await loadStrategy(user!.id, strategyName, {
-    units,
-    spreads: SPREADS,
-    entryDelay,
-    // london-breakout specific CLI flags
-    rewardRatio: rewardRatio || 0,
-    instruments: pairsFlag
-      ? pairsFlag.split(",")
-      : undefined,
-    trailActivateFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-activate="))?.split("=")[1] ?? "2.0"),
-    trailDistanceFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-dist="))?.split("=")[1] ?? "1.0"),
-    ...(stopRangeFraction !== undefined && { stopRangeFraction }),
-    ...(skipDays !== undefined && { skipDays }),
-  });
+  const strategy = await loadStrategy(user!.id, strategyName, strategyParams);
 
   const flags = [];
   if (spreadMultiplier !== 1.0) flags.push(`spread×${spreadMultiplier}`);
@@ -130,31 +142,6 @@ async function main() {
 
   if (!existsSync(backtestsDir)) {
     mkdirSync(backtestsDir, { recursive: true });
-  }
-
-  const strategyParams: Record<string, unknown> = {
-    units,
-    entryDelay,
-    rewardRatio: rewardRatio || 0,
-    instruments: pairsFlag ? pairsFlag.split(",") : undefined,
-    trailActivateFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-activate="))?.split("=")[1] ?? "2.0"),
-    trailDistanceFraction: parseFloat(process.argv.find((a) => a.startsWith("--trail-dist="))?.split("=")[1] ?? "1.0"),
-    ...(stopRangeFraction !== undefined && { stopRangeFraction }),
-    ...(skipDays !== undefined && { skipDays }),
-  };
-  // Strip undefined values
-  for (const k of Object.keys(strategyParams)) {
-    if (strategyParams[k] === undefined) delete strategyParams[k];
-  }
-
-  // Generic config overrides: --config.key=value (e.g., --config.stopAtrMult=3.0)
-  for (const arg of process.argv) {
-    const match = arg.match(/^--config\.(\w+)=(.+)$/);
-    if (match) {
-      const [, key, raw] = match;
-      const num = parseFloat(raw);
-      strategyParams[key] = isNaN(num) ? raw : num;
-    }
   }
 
   const paramDescriptions: Record<string, string> = {
