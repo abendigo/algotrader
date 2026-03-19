@@ -84,6 +84,11 @@
     });
   }
 
+  async function cancelJob(jobId: string) {
+    await fetch(`/api/admin/collect?id=${jobId}`, { method: "DELETE" });
+    await fetchJobs();
+  }
+
   let pendingCollects = $state<Set<string>>(new Set());
 
   async function collectGroup(granularity: string, direction: "latest" | "previous", instruments: string[], label?: string) {
@@ -226,6 +231,7 @@
           {#if job.progress.errors > 0}
             <span class="job-errors">{job.progress.errors} errors</span>
           {/if}
+          <button class="btn-sm btn-cancel" onclick={() => cancelJob(job.id)}>Cancel</button>
         </div>
       {/each}
     </div>
@@ -395,6 +401,8 @@
   .job-current { color: #d29922; min-width: 80px; }
   .job-progress { color: #8b949e; }
   .job-errors { color: #f85149; }
+  .btn-cancel { background: transparent; color: #f85149; border-color: #f85149; margin-left: auto; }
+  .btn-cancel:hover { background: #5d1a1a; }
   .data-page h1 {
     font-size: 1.4em;
     margin-bottom: 16px;

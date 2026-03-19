@@ -59,6 +59,19 @@ export function getAllJobs(): CollectJob[] {
   return [...jobs.values()];
 }
 
+export function cancelJob(id: string): boolean {
+  const job = jobs.get(id);
+  if (!job || job.progress.status !== "running") return false;
+  job.progress = { ...job.progress, status: "error", message: "Cancelled by user" };
+  return true;
+}
+
+/** Returns true if the job has been cancelled */
+export function isJobCancelled(id: string): boolean {
+  const job = jobs.get(id);
+  return !job || job.progress.status !== "running";
+}
+
 export function clearFinishedJobs(): void {
   for (const [id, job] of jobs) {
     if (job.progress.status !== "running") jobs.delete(id);

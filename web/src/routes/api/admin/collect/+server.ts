@@ -3,7 +3,7 @@ import type { RequestHandler } from "./$types.js";
 import { getSystemApiKey } from "$lib/server/system-config.js";
 import { collect, getExistingDataRange } from "../../../../../../src/data/collect.js";
 import { GRANULARITY_SECONDS, type Granularity } from "../../../../../../src/core/types.js";
-import { createJob, updateJob, getAllJobs, clearFinishedJobs } from "$lib/server/collect-jobs.js";
+import { createJob, updateJob, cancelJob, isJobCancelled, getAllJobs, clearFinishedJobs } from "$lib/server/collect-jobs.js";
 
 /** Batch sizes in days, scaled by granularity */
 function getBatchDays(granularity: string): number {
@@ -73,7 +73,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     from,
     to,
     instruments,
-    onProgress: (progress) => updateJob(job.id, progress),
+    onProgress: (progress) => {
+      if (isJobCancelled(job.id)) throw new Error("Cancelled");
+      updateJob(job.id, progress);
+    },
   }).catch((err) => {
     updateJob(job.id, {
       status: "error",
@@ -110,4 +113,23 @@ export const GET: RequestHandler = ({ url, locals }) => {
   }
 
   return json({ jobs: getAllJobs() });
+};
+
+/**
+ * DELETE /api/admin/collect?id=<jobId>
+ * Cancel a running collection job.
+ */
+export const DELETE: RequestHandler = ({ url, locals }) => {
+  const user = locals.user;
+  if (!user || user.role !== "admin") {
+    return json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const jobId = url.searchParams.get("id");
+  if (!jobId) return json({ error: "id is required" }, { status: 400 });
+
+  const cancelled = cancelJob(jobId);
+  if (!cancelled) return json({ error: "Job not found or not running" }, { status: 404 });
+
+  return json({ ok: true });
 };
