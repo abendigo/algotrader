@@ -47,7 +47,7 @@
 		position: fixed;
 		top: 0;
 		left: 0;
-		height: 2px;
+		height: 4px;
 		background: #58a6ff;
 		z-index: 1000;
 		animation: progress 1.5s ease-in-out infinite;
