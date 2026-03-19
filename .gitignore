@@ -5,6 +5,9 @@ dist/
 /data/users.json
 /data/sessions.json
 /data/system-config.json
+/data/instruments-cache.json
+/data/shared/
+.env
 /reports/
 /logs/
 *.local
