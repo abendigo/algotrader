@@ -1,4 +1,4 @@
-import { listAllStrategies } from "$lib/server/strategies.js";
+import { listAllStrategies, hasSharedOrBuiltin } from "$lib/server/strategies.js";
 import { getApiKey, discoverAccounts } from "$lib/server/auth.js";
 import { getDataSummary } from "$lib/server/data.js";
 
@@ -26,13 +26,11 @@ export async function load({ locals }) {
   const allStrategies = listAllStrategies(userId);
   const userStrategies = allStrategies.filter((s) => s.source === "user");
 
-  // Track which user strategies have a shared/builtin counterpart (revertable)
-  const nonUserIds = new Set(
-    allStrategies.filter((s) => s.source !== "user").map((s) => s.id),
-  );
+  // Check filesystem directly — listStrategies deduplicates, so shared/builtin
+  // entries are hidden when a user version exists
   const userStrategiesWithMeta = userStrategies.map((s) => ({
     ...s,
-    revertable: nonUserIds.has(s.id),
+    revertable: hasSharedOrBuiltin(s.id),
   }));
 
   return {

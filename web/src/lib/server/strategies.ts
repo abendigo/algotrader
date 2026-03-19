@@ -12,6 +12,12 @@ export function listAllStrategies(userId: string): StrategyMeta[] {
   return listStrategies(userId);
 }
 
+/** Check if a strategy exists in shared or builtin directories. */
+export function hasSharedOrBuiltin(strategyId: string): boolean {
+  return existsSync(join(SHARED_DIR, `${strategyId}.ts`))
+    || existsSync(join(BUILTIN_DIR, `${strategyId}.ts`));
+}
+
 export function copySharedStrategy(userId: string, strategyId: string): { success: boolean; error?: string } {
   // Check shared (data volume) first, then builtin (app image)
   const sharedFile = join(SHARED_DIR, `${strategyId}.ts`);
