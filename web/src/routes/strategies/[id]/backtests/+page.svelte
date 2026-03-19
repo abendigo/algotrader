@@ -27,6 +27,7 @@
 	let btPollInterval: ReturnType<typeof setInterval> | null = null;
 	let actionMessage = $state("");
 	let actionError = $state("");
+	let running = $state(false);
 	let backtestGranularity = $state(initialGranularity);
 	let showAdvanced = $state(false);
 	let btSpreadMult = $state(1.5);
@@ -119,6 +120,7 @@
 	onDestroy(() => { if (btPollInterval) clearInterval(btPollInterval); });
 
 	async function runBacktest() {
+		running = true;
 		actionMessage = "";
 		actionError = "";
 		const body: Record<string, unknown> = {
@@ -146,6 +148,7 @@
 		} else {
 			actionError = result.error;
 		}
+		running = false;
 	}
 
 	// Results display
@@ -228,7 +231,7 @@
 					<option value={key}>{p.label}</option>
 				{/each}
 			</select>
-			<button class="btn-primary" onclick={runBacktest}>Run</button>
+			<button class="btn-primary" onclick={runBacktest} disabled={running}>{running ? "Starting..." : "Run"}</button>
 		</div>
 
 		<div class="date-row">

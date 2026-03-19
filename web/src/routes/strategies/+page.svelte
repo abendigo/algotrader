@@ -3,6 +3,7 @@
 	import { invalidateAll } from "$app/navigation";
 
 	let { data, form } = $props();
+	let copyingId = $state<string | null>(null);
 
 	function fmtPct(n: number): string {
 		return (n >= 0 ? "+" : "") + n.toFixed(1) + "%";
@@ -72,9 +73,9 @@
 							{#if strategy.alreadyCopied}
 								<span class="already-copied">In your collection</span>
 							{:else}
-								<form method="POST" action="?/copy" use:enhance={() => { return async ({ update }) => { await update(); await invalidateAll(); }; }}>
+								<form method="POST" action="?/copy" use:enhance={() => { copyingId = strategy.id; return async ({ update }) => { await update(); copyingId = null; await invalidateAll(); }; }}>
 									<input type="hidden" name="strategyId" value={strategy.id} />
-									<button type="submit" class="btn-copy">Copy</button>
+									<button type="submit" class="btn-copy" disabled={copyingId === strategy.id}>{copyingId === strategy.id ? "Copying..." : "Copy"}</button>
 								</form>
 							{/if}
 						</div>

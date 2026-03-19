@@ -73,7 +73,10 @@
 		}
 	}
 
+	let sharing = $state(false);
+
 	async function shareStrategy() {
+		sharing = true;
 		actionMessage = "";
 		actionError = "";
 		const res = await fetch(`/api/strategies/${data.strategy.id}`, {
@@ -87,6 +90,7 @@
 		} else {
 			actionError = result.error;
 		}
+		sharing = false;
 	}
 </script>
 
@@ -109,7 +113,7 @@
 			<div class="header-actions">
 				<button class="btn-action" onclick={() => { forkTarget = true; forkName = data.strategy.id + "-v2"; }}>Fork</button>
 				{#if data.isAdmin}
-					<button class="btn-action btn-share" onclick={shareStrategy}>Share</button>
+					<button class="btn-action btn-share" onclick={shareStrategy} disabled={sharing}>{sharing ? "Sharing..." : "Share"}</button>
 				{/if}
 				{#if data.strategy.revertable}
 					<button class="btn-action btn-warn" onclick={() => showRevert = true}>Revert</button>

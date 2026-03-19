@@ -84,7 +84,12 @@
     });
   }
 
+  let pendingCollects = $state<Set<string>>(new Set());
+
   async function collectGroup(granularity: string, direction: "latest" | "previous", instruments: string[], label?: string) {
+    const key = `${granularity}-${direction}-${instruments.join(",")}`;
+    pendingCollects.add(key);
+    pendingCollects = new Set(pendingCollects);
     const range = fetchRange(granularity, direction, instruments);
     const fullLabel = label ? `${label} (${range})` : (instruments.length === 1 ? `${instruments[0]} (${range})` : `${instruments.length} instruments (${range})`);
     try {
@@ -94,10 +99,11 @@
         body: JSON.stringify({ granularity, direction, instruments, label: fullLabel }),
       });
       if (res.ok) {
-        const jobsRes = await fetch("/api/admin/collect");
-        if (jobsRes.ok) collectJobs = (await jobsRes.json()).jobs;
+        await fetchJobs();
       }
     } catch { /* ignore */ }
+    pendingCollects.delete(key);
+    pendingCollects = new Set(pendingCollects);
   }
 
   // Group stats for a granularity

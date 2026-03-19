@@ -50,6 +50,16 @@
 	:global(a:hover) {
 		text-decoration: underline;
 	}
+	:global(button) {
+		transition: opacity 0.1s, transform 0.1s;
+	}
+	:global(button:active:not(:disabled)) {
+		transform: scale(0.97);
+		opacity: 0.8;
+	}
+	:global(button:disabled) {
+		cursor: not-allowed;
+	}
 	.app {
 		min-height: 100vh;
 	}

@@ -14,6 +14,7 @@
 
 	let actionMessage = $state("");
 	let actionError = $state("");
+	let starting = $state(false);
 	let liveAccountId = $state("");
 	let liveConfig = $state<Record<string, unknown>>({});
 
@@ -38,6 +39,7 @@
 
 	async function startLive() {
 		if (!liveAccountId) return;
+		starting = true;
 		actionMessage = "";
 		actionError = "";
 		const res = await fetch("/api/live/start", {
@@ -51,6 +53,7 @@
 		} else {
 			actionError = result.error;
 		}
+		starting = false;
 	}
 
 	// Poll for sessions on this strategy
@@ -115,7 +118,7 @@
 						<option value={acct.id}>{acct.alias} ({acct.hedgingEnabled ? "hedging" : "netting"})</option>
 					{/each}
 				</select>
-				<button class="btn-primary" onclick={startLive} disabled={!liveAccountId}>Start</button>
+				<button class="btn-primary" onclick={startLive} disabled={!liveAccountId || starting}>{starting ? "Starting..." : "Start"}</button>
 			</div>
 			{#if liveFields.length > 0}
 				<div class="strategy-options">
