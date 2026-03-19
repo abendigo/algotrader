@@ -333,7 +333,7 @@
 				{#each data.userStrategies as strategy}
 					<tr>
 						<td class="name">{strategy.name}</td>
-						<td class="mono">{strategy.id}.ts <span class="file-date">{strategy.modifiedAt ? new Date(strategy.modifiedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""}</span></td>
+						<td class="mono">{strategy.id}.ts <span class="file-meta">{strategy.fileSize != null ? (strategy.fileSize < 1024 ? `${strategy.fileSize} B` : `${(strategy.fileSize / 1024).toFixed(1)} KB`) : ""}{strategy.modifiedAt ? ` · ${new Date(strategy.modifiedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : ""}</span></td>
 						<td class="actions">
 							<a href="/strategies/edit/{strategy.id}" class="btn-action">Edit</a>
 							<button class="btn-action" onclick={() => { forkTarget = strategy.id; forkName = nextForkName(strategy.id); }}>Fork</button>
@@ -646,7 +646,7 @@ tttttt{/if}
 	tr:hover td { background: #1c2128; }
 	.name { font-weight: 600; }
 	.mono { font-family: monospace; font-size: 0.85em; color: #8b949e; }
-	.file-date { color: #8b949e; margin-left: 8px; }
+	.file-meta { color: #8b949e; margin-left: 8px; }
 	.source { color: #8b949e; font-size: 0.85em; }
 	.source.private { color: #58a6ff; }
 	.actions {

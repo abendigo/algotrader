@@ -34,11 +34,13 @@ export async function load({ locals }) {
   const userDir = join(DATA_DIR, "users", userId, "strategies");
   const userStrategiesWithMeta = userStrategies.map((s) => {
     let modifiedAt: string | null = null;
+    let fileSize: number | null = null;
     try {
       const stat = statSync(join(userDir, `${s.id}.ts`));
       modifiedAt = stat.mtime.toISOString();
+      fileSize = stat.size;
     } catch { /* ignore */ }
-    return { ...s, revertable: hasSharedOrBuiltin(s.id), modifiedAt };
+    return { ...s, revertable: hasSharedOrBuiltin(s.id), modifiedAt, fileSize };
   });
 
   return {
