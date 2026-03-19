@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from "svelte";
+	import { invalidateAll } from "$app/navigation";
 
 	let { data } = $props();
 	const initialGranularity = data.availableGranularities[0]?.name ?? "M1";
@@ -131,7 +132,7 @@
 			actionMessage = `Forked to ${forkName}.ts`;
 			forkTarget = null;
 			forkName = "";
-			location.reload();
+			await invalidateAll();
 		} else {
 			actionError = result.error;
 		}
@@ -147,7 +148,7 @@
 		if (res.ok) {
 			actionMessage = `Deleted ${deleteTarget}.ts`;
 			deleteTarget = null;
-			location.reload();
+			await invalidateAll();
 		} else {
 			actionError = result.error;
 		}
@@ -165,6 +166,7 @@
 		const result = await res.json();
 		if (res.ok) {
 			actionMessage = `Shared ${id}.ts to community`;
+			await invalidateAll();
 		} else {
 			actionError = result.error;
 		}
@@ -184,6 +186,7 @@
 		if (res.ok) {
 			actionMessage = `Reverted ${revertTarget}.ts to original`;
 			revertTarget = null;
+			await invalidateAll();
 		} else {
 			actionError = result.error;
 		}
