@@ -2,7 +2,7 @@
 
 # --- Stage 1: Install dependencies and build ---
 FROM node:22-slim AS build
-ARG GIT_SHA=unknown
+ARG GIT_SHA
 
 WORKDIR /app
 
