@@ -73,16 +73,25 @@ async function ensureServiceDocker(userId: string, userEmail: string): Promise<S
   if (client) return client;
 
   // Start a new container
+  console.log(`[Docker] Starting live service container for ${userEmail} (${userId})`);
   const started = await startContainer(userId, userEmail);
-  if (!started) return null;
-
-  // Poll for service to be ready (max 5s)
-  for (let i = 0; i < 25; i++) {
-    await new Promise((r) => setTimeout(r, 200));
-    client = await getDockerServiceClient(userId);
-    if (client) return client;
+  if (!started) {
+    console.error(`[Docker] Failed to start container for ${userEmail}`);
+    return null;
   }
 
+  // Poll for service to be ready (max 10s)
+  console.log(`[Docker] Container started, waiting for service to be ready...`);
+  for (let i = 0; i < 50; i++) {
+    await new Promise((r) => setTimeout(r, 200));
+    client = await getDockerServiceClient(userId);
+    if (client) {
+      console.log(`[Docker] Service ready for ${userEmail}`);
+      return client;
+    }
+  }
+
+  console.error(`[Docker] Service for ${userEmail} did not become ready in time`);
   return null;
 }
 
