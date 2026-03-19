@@ -59,7 +59,7 @@
 		starting = false;
 	}
 
-	function rerunSession(ps: typeof data.pastSessions[0]) {
+	function rerunSession(ps: typeof filteredPastSessions[0]) {
 		liveAccountId = ps.accountId;
 		if (ps.config && typeof ps.config === "object") {
 			liveConfig = { ...liveConfig, ...ps.config };
@@ -92,6 +92,7 @@
 	let sessions = $state<Session[]>([]);
 	let pollInterval: ReturnType<typeof setInterval> | null = null;
 	let stoppingSessions = $state<Set<string>>(new Set());
+	let prevActiveIds = new Set<string>();
 
 	async function fetchSessions() {
 		try {
@@ -99,11 +100,25 @@
 			if (!res.ok) return;
 			const all: Session[] = await res.json();
 			sessions = all.filter((s) => s.strategyName === data.strategy.id || s.strategyName === data.strategy.name);
+
+			// If a session that was active is now gone or stopped, refresh past sessions
+			const currentActiveIds = new Set(sessions.filter((s) => s.running && !s.stale).map((s) => s.sessionId ?? ""));
+			for (const id of prevActiveIds) {
+				if (!currentActiveIds.has(id)) {
+					await invalidateAll();
+					break;
+				}
+			}
+			prevActiveIds = currentActiveIds;
 		} catch { /* ignore */ }
 	}
 
 	onMount(() => { fetchSessions(); pollInterval = setInterval(fetchSessions, 3000); });
 	onDestroy(() => { if (pollInterval) clearInterval(pollInterval); });
+
+	// Filter past sessions to exclude ones currently active
+	const activeSessionIds = $derived(new Set(sessions.map((s) => s.sessionId)));
+	const filteredPastSessions = $derived(filteredPastSessions.filter((ps) => !activeSessionIds.has(ps.sessionId)));
 
 	async function stopSession(sessionId: string) {
 		stoppingSessions.add(sessionId);
@@ -191,7 +206,7 @@
 		</section>
 	{/if}
 
-	{#if data.pastSessions.length > 0}
+	{#if filteredPastSessions.length > 0}
 		<section>
 			<h2>Previous Sessions</h2>
 			<table class="past-table">
@@ -207,7 +222,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each data.pastSessions as ps}
+					{#each filteredPastSessions as ps}
 						{@const started = new Date(ps.startedAt)}
 						{@const last = new Date(ps.lastHeartbeat)}
 						{@const durMs = last.getTime() - started.getTime()}
