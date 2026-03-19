@@ -90,9 +90,11 @@
     return { total: instruments.length, collected };
   }
 
-  const groupOrder = ["CURRENCY", "METAL", "CFD"];
+  const groupOrder = ["MAJORS", "CROSSES", "EXOTICS", "METAL", "CFD"];
   const groupLabels: Record<string, string> = {
-    CURRENCY: "Forex",
+    MAJORS: "Forex — Majors",
+    CROSSES: "Forex — Crosses",
+    EXOTICS: "Forex — Exotics",
     METAL: "Metals",
     CFD: "CFDs & Indices",
   };

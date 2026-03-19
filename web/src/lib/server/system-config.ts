@@ -105,8 +105,7 @@ export async function setSystemApiKey(apiKey: string): Promise<{ success: boolea
 }
 
 export function hasSystemApiKey(): boolean {
-  const config = loadConfig();
-  return !!config.oandaApiKey;
+  return getSystemApiKey() !== null;
 }
 
 // --- Account discovery ---
@@ -116,10 +115,14 @@ async function discoverAccountId(apiKey: string): Promise<string | null> {
     const res = await fetch(`${OANDA_BASE_URL}/v3/accounts`, {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error(`[system-config] Account discovery failed: ${res.status} ${await res.text()}`);
+      return null;
+    }
     const data = (await res.json()) as { accounts: { id: string }[] };
     return data.accounts[0]?.id ?? null;
-  } catch {
+  } catch (err) {
+    console.error(`[system-config] Account discovery error:`, err);
     return null;
   }
 }
@@ -154,8 +157,11 @@ export async function refreshInstrumentCache(
   const key = apiKey ?? getSystemApiKey();
   const acctId = accountId ?? await getSystemAccountId();
 
-  if (!key || !acctId) {
-    return { success: false, error: "System API key or account ID not configured" };
+  if (!key) {
+    return { success: false, error: "System API key not configured" };
+  }
+  if (!acctId) {
+    return { success: false, error: "Could not determine OANDA account ID. Try re-entering the API key on the admin page." };
   }
 
   try {
