@@ -248,7 +248,7 @@
                   </span>
                   <span class="expand-icon">{expandedGroups.has(groupKey) ? "−" : "+"}</span>
                 </button>
-                <div class="group-actions">
+                <div class="group-actions" onclick={(e) => e.stopPropagation()}>
                   {#if data.hasApiKey && !isGroupBusy(gran.name, instNames)}
                     <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames, groupLabels[groupType] ?? groupType)}
                       title={fetchRange(gran.name, "latest", instNames)}>
@@ -307,7 +307,7 @@
                 <span class="group-stats">{stats.collected}/{stats.total} collected</span>
                 <span class="expand-icon">{expandedGroups.has(groupKey) ? "−" : "+"}</span>
               </button>
-              <div class="group-actions">
+              <div class="group-actions" onclick={(e) => e.stopPropagation()}>
                 {#if data.hasApiKey && !isGroupBusy(gran.name, instNames)}
                   <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames, groupType)}
                     title={fetchRange(gran.name, "latest", instNames)}>
