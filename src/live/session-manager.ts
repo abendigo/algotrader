@@ -655,10 +655,6 @@ export class SessionManager {
         strategy: strategyState,
         strategyName: session.strategy.name,
       };
-      // Debug: log indicator count periodically
-      if (session.tickCount % 500 === 0) {
-        console.log(`[DEBUG] ${session.strategyName} tick=${session.tickCount} indicators=${strategyState.indicators.length} positions=${strategyState.positions.length} phase=${strategyState.phase}`);
-      }
       writeFileSync(session.stateFile, JSON.stringify(state, null, 2));
       session.sessionFile.lastHeartbeat = new Date(timestamp).toISOString();
       this.writeSessionFile(session);
