@@ -155,6 +155,21 @@
     return `${from.toISOString().slice(0, 10)} → ${to.toISOString().slice(0, 10)}`;
   }
 
+  function isLatestCurrent(granularity: string, instruments: string[]): boolean {
+    const coverage = data.granularities.find((g: any) => g.name === granularity)?.coverage ?? {};
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    // Consider "current" if every instrument with data has latest >= yesterday
+    let hasAny = false;
+    for (const inst of instruments) {
+      const cov = coverage[inst];
+      if (!cov) continue;
+      hasAny = true;
+      if (cov.latest < yesterday) return false;
+    }
+    return hasAny;
+  }
+
   const groupOrder = ["MAJORS", "CROSSES", "EXOTICS", "METAL", "CFD"];
   const groupLabels: Record<string, string> = {
     MAJORS: "Forex — Majors",
@@ -250,9 +265,11 @@
                 </button>
                 <div class="group-actions" onclick={(e) => e.stopPropagation()}>
                   {#if data.hasApiKey && !isGroupBusy(gran.name, instNames)}
+                    {@const latestCurrent = isLatestCurrent(gran.name, instNames)}
                     <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames, groupLabels[groupType] ?? groupType)}
-                      title={fetchRange(gran.name, "latest", instNames)}>
-                      Fetch Latest <span class="range-hint">{fetchRange(gran.name, "latest", instNames)}</span>
+                      title={latestCurrent ? "Already up to date" : fetchRange(gran.name, "latest", instNames)}
+                      disabled={latestCurrent}>
+                      Fetch Latest {#if !latestCurrent}<span class="range-hint">{fetchRange(gran.name, "latest", instNames)}</span>{:else}<span class="range-hint">up to date</span>{/if}
                     </button>
                     <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", instNames, groupLabels[groupType] ?? groupType)}
                       title={fetchRange(gran.name, "previous", instNames)}>
@@ -281,7 +298,8 @@
                           <td class="date">{cov ? `${cov.earliest} to ${cov.latest}` : "—"}</td>
                           <td class="inst-actions">
                             {#if data.hasApiKey && !isGroupBusy(gran.name, [inst.name])}
-                              <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])} title={fetchRange(gran.name, "latest", [inst.name])}>Latest <span class="range-hint">{fetchRange(gran.name, "latest", [inst.name])}</span></button>
+                              {@const instCurrent = isLatestCurrent(gran.name, [inst.name])}
+                              <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])} title={instCurrent ? "Up to date" : fetchRange(gran.name, "latest", [inst.name])} disabled={instCurrent}>Latest {#if !instCurrent}<span class="range-hint">{fetchRange(gran.name, "latest", [inst.name])}</span>{:else}<span class="range-hint">up to date</span>{/if}</button>
                               <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])} title={fetchRange(gran.name, "previous", [inst.name])}>Previous <span class="range-hint">{fetchRange(gran.name, "previous", [inst.name])}</span></button>
                             {/if}
                           </td>
@@ -309,9 +327,11 @@
               </button>
               <div class="group-actions" onclick={(e) => e.stopPropagation()}>
                 {#if data.hasApiKey && !isGroupBusy(gran.name, instNames)}
+                  {@const latestCurrent2 = isLatestCurrent(gran.name, instNames)}
                   <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames, groupType)}
-                    title={fetchRange(gran.name, "latest", instNames)}>
-                    Fetch Latest <span class="range-hint">{fetchRange(gran.name, "latest", instNames)}</span>
+                    title={latestCurrent2 ? "Already up to date" : fetchRange(gran.name, "latest", instNames)}
+                    disabled={latestCurrent2}>
+                    Fetch Latest {#if !latestCurrent2}<span class="range-hint">{fetchRange(gran.name, "latest", instNames)}</span>{:else}<span class="range-hint">up to date</span>{/if}
                   </button>
                   <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", instNames, groupType)}
                     title={fetchRange(gran.name, "previous", instNames)}>
@@ -334,8 +354,9 @@
                         <td class="date">{cov ? `${cov.earliest} to ${cov.latest}` : "—"}</td>
                         <td class="inst-actions">
                           {#if data.hasApiKey && !isGroupBusy(gran.name, [inst.name])}
-                            <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])}>Latest</button>
-                            <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])}>Previous</button>
+                            {@const instCurrent2 = isLatestCurrent(gran.name, [inst.name])}
+                            <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])} disabled={instCurrent2}>Latest {#if !instCurrent2}<span class="range-hint">{fetchRange(gran.name, "latest", [inst.name])}</span>{:else}<span class="range-hint">up to date</span>{/if}</button>
+                            <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])}>Previous <span class="range-hint">{fetchRange(gran.name, "previous", [inst.name])}</span></button>
                           {/if}
                         </td>
                       </tr>
@@ -397,6 +418,7 @@
   .btn-refresh:hover { border-color: #58a6ff; }
   .btn-collect { background: transparent; color: #58a6ff; border-color: #30363d; white-space: nowrap; }
   .btn-collect:hover { border-color: #58a6ff; }
+  .btn-collect:disabled { opacity: 0.4; cursor: not-allowed; border-color: #30363d; }
   .range-hint { color: #484f58; font-size: 0.9em; margin-left: 4px; }
   .gran-section {
     border: 1px solid #21262d; border-radius: 6px; margin-bottom: 8px;
