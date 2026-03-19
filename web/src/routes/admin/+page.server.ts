@@ -3,7 +3,7 @@ import { readFileSync, existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { getDataSummary } from "$lib/server/data.js";
 import { ServiceClient, readServiceDiscovery } from "../../../../src/live/service-client.js";
-import { hasSystemApiKey, setSystemApiKey, getSystemApiKey } from "$lib/server/system-config.js";
+import { hasSystemApiKey, setSystemApiKey } from "$lib/server/system-config.js";
 
 import { DATA_DIR } from "$lib/server/paths.js";
 
@@ -122,8 +122,11 @@ export const actions = {
 
     if (!apiKey) return fail(400, { error: "API key is required" });
 
-    setSystemApiKey(apiKey);
-    return { success: true, message: "System API key saved" };
+    const result = await setSystemApiKey(apiKey);
+    if (!result.success) {
+      return fail(400, { error: result.error });
+    }
+    return { success: true, message: "System API key saved and instruments cached" };
   },
 
   setRole: async ({ request }) => {

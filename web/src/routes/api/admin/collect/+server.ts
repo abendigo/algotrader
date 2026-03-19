@@ -33,13 +33,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const body = await request.json();
   const granularity = body.granularity as string;
   const direction = body.direction as "latest" | "previous";
+  const instruments = body.instruments as string[] | undefined;
 
   if (!granularity || !direction) {
     return json({ error: "granularity and direction are required" }, { status: 400 });
   }
 
   const batchDays = getBatchDays(granularity);
-  const existing = getExistingDataRange(granularity);
+  const existing = getExistingDataRange(granularity, instruments);
 
   let from: Date;
   let to: Date;
@@ -70,6 +71,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     granularity: granularity as Granularity,
     from,
     to,
+    instruments,
     onProgress: (progress) => updateJob(job.id, progress),
   }).catch((err) => {
     updateJob(job.id, {

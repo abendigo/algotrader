@@ -117,6 +117,8 @@ export interface CollectOptions {
   granularity: Granularity;
   from: Date;
   to: Date;
+  /** Instruments to collect. Defaults to ALL_INSTRUMENTS if not provided. */
+  instruments?: string[];
   onProgress?: (progress: CollectProgress) => void;
 }
 
@@ -129,9 +131,13 @@ export interface CollectResult {
 
 /**
  * Get the date range of existing data for a granularity.
+ * Optionally filter to specific instruments.
  * Returns null if no data exists.
  */
-export function getExistingDataRange(granularity: string): { earliest: string; latest: string } | null {
+export function getExistingDataRange(
+  granularity: string,
+  instruments?: string[],
+): { earliest: string; latest: string } | null {
   const granDir = join(DATA_DIR, granularity);
   if (!existsSync(granDir)) return null;
 
@@ -139,9 +145,11 @@ export function getExistingDataRange(granularity: string): { earliest: string; l
   let latest = "0000-00-00";
   let found = false;
 
-  for (const inst of readdirSync(granDir)) {
+  const dirs = instruments ?? readdirSync(granDir);
+  for (const inst of dirs) {
     const instDir = join(granDir, inst);
     try {
+      if (!existsSync(instDir)) continue;
       const files = readdirSync(instDir).filter((f) => f.endsWith(".json")).sort();
       if (files.length > 0) {
         found = true;
@@ -157,10 +165,38 @@ export function getExistingDataRange(granularity: string): { earliest: string; l
 }
 
 /**
+ * Get per-instrument data coverage for a granularity.
+ */
+export function getInstrumentCoverage(
+  granularity: string,
+): Record<string, { days: number; earliest: string; latest: string }> {
+  const granDir = join(DATA_DIR, granularity);
+  if (!existsSync(granDir)) return {};
+
+  const coverage: Record<string, { days: number; earliest: string; latest: string }> = {};
+  for (const inst of readdirSync(granDir)) {
+    const instDir = join(granDir, inst);
+    try {
+      const files = readdirSync(instDir).filter((f) => f.endsWith(".json")).sort();
+      if (files.length > 0) {
+        coverage[inst] = {
+          days: files.length,
+          earliest: files[0].replace(".json", ""),
+          latest: files[files.length - 1].replace(".json", ""),
+        };
+      }
+    } catch { /* skip */ }
+  }
+
+  return coverage;
+}
+
+/**
  * Collect candle data for a date range. Can be called programmatically.
  */
 export async function collect(options: CollectOptions): Promise<CollectResult> {
-  const { apiKey, granularity, from, to, onProgress } = options;
+  const { apiKey, granularity, from, to, instruments: instrumentList, onProgress } = options;
+  const instruments = instrumentList ?? ALL_INSTRUMENTS;
 
   const config: Config = {
     OANDA_API_KEY: apiKey,
@@ -177,7 +213,7 @@ export async function collect(options: CollectOptions): Promise<CollectResult> {
   let skippedDayFiles = 0;
   const instrumentWork: { instrument: string; missing: Date[] }[] = [];
 
-  for (const instrument of ALL_INSTRUMENTS) {
+  for (const instrument of instruments) {
     const instDir = join(DATA_DIR, granularity, instrument);
     if (!existsSync(instDir)) mkdirSync(instDir, { recursive: true });
 

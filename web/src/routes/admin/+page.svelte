@@ -5,23 +5,6 @@
 	let { data, form } = $props();
 	let stoppingService = $state<string | null>(null);
 
-	interface CollectJob {
-		id: string;
-		granularity: string;
-		direction: string;
-		progress: {
-			status: "running" | "done" | "error";
-			currentInstrument?: string;
-			totalInstruments: number;
-			completedInstruments: number;
-			totalDayFiles: number;
-			fetchedDayFiles: number;
-			skippedDayFiles: number;
-			errors: number;
-			message: string;
-		};
-	}
-	let collectJobs = $state<CollectJob[]>([]);
 
 	// Auto-refresh services every 5 seconds
 	let servicesData = $state(data.services);
@@ -43,49 +26,6 @@
 		const m = Math.floor((sec % 3600) / 60);
 		if (h > 0) return `${h}h ${m}m`;
 		return `${m}m`;
-	}
-
-	// Poll collection jobs every 2 seconds when any are running
-	$effect(() => {
-		const hasRunning = collectJobs.some((j) => j.progress.status === "running");
-		if (!hasRunning) return;
-		const interval = setInterval(async () => {
-			try {
-				const res = await fetch("/api/admin/collect");
-				if (res.ok) {
-					const data = await res.json();
-					collectJobs = data.jobs;
-					// Refresh data table when jobs finish
-					if (!data.jobs.some((j: CollectJob) => j.progress.status === "running")) {
-						await invalidateAll();
-					}
-				}
-			} catch { /* ignore */ }
-		}, 2000);
-		return () => clearInterval(interval);
-	});
-
-	function getJobForGran(granularity: string): CollectJob | undefined {
-		return collectJobs.find((j) => j.granularity === granularity && j.progress.status === "running")
-			?? collectJobs.findLast((j: CollectJob) => j.granularity === granularity);
-	}
-
-	async function collectData(granularity: string, direction: "latest" | "previous") {
-		try {
-			const res = await fetch("/api/admin/collect", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ granularity, direction }),
-			});
-			const result = await res.json();
-			if (!result.ok) return;
-			// Immediately poll for job status
-			const jobsRes = await fetch("/api/admin/collect");
-			if (jobsRes.ok) {
-				const data = await jobsRes.json();
-				collectJobs = data.jobs;
-			}
-		} catch { /* ignore */ }
 	}
 
 	async function stopService(userId: string) {
@@ -245,57 +185,8 @@
 				<span class="label">Total files</span>
 				<span class="value">{data.disk.files.toLocaleString()}</span>
 			</div>
-			<div class="stat-row">
-				<span class="label">Data path</span>
-				<span class="value mono">{data.disk.path}</span>
-			</div>
 		</div>
-
-		{#each data.data.brokers as broker}
-			<h3 class="broker-name">{broker.name}</h3>
-			<table class="data-table">
-				<thead>
-					<tr>
-						<th>Granularity</th>
-						<th>Instruments</th>
-						<th>Days</th>
-						<th>Date Range</th>
-						<th></th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each broker.granularities as gran}
-						{@const job = getJobForGran(gran.name)}
-						<tr class:no-data={gran.instruments === 0 && !job}>
-							<td class="mono">{gran.name}</td>
-							<td>{gran.instruments || "—"}</td>
-							<td>{gran.days || "—"}</td>
-							<td class="date">{gran.dateRange.from ? `${gran.dateRange.from} to ${gran.dateRange.to}` : "—"}</td>
-							<td class="collect-actions">
-								{#if job?.progress.status === "running"}
-									<span class="collecting">
-										{job.progress.currentInstrument ?? "Starting"}
-										— {job.progress.fetchedDayFiles}/{job.progress.totalDayFiles}
-										({job.progress.completedInstruments}/{job.progress.totalInstruments} instruments)
-									</span>
-								{:else if job && job.progress.status !== "running"}
-									<span class="collect-result" class:collect-error={job.progress.status === "error"}>
-										{job.progress.fetchedDayFiles} fetched{job.progress.errors > 0 ? `, ${job.progress.errors} errors` : ""}
-									</span>
-								{:else if data.hasSystemApiKey}
-									<button class="btn-sm btn-collect" onclick={() => collectData(gran.name, "latest")}>
-										Fetch Latest
-									</button>
-									<button class="btn-sm btn-collect" onclick={() => collectData(gran.name, "previous")}>
-										Fetch Previous
-									</button>
-								{/if}
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		{/each}
+		<a href="/admin/data" class="btn-sm btn-promote" style="display:inline-block; margin-top:8px;">Manage Data Collection</a>
 	</section>
 
 	<section>
@@ -447,19 +338,4 @@
 		font-family: monospace;
 	}
 	.input-key:focus { outline: none; border-color: #58a6ff; }
-	.collect-actions {
-		display: flex;
-		gap: 4px;
-		align-items: center;
-	}
-	.btn-collect {
-		background: transparent;
-		color: #58a6ff;
-		border-color: #30363d;
-		white-space: nowrap;
-	}
-	.btn-collect:hover { border-color: #58a6ff; }
-	.collecting { color: #d29922; font-size: 0.8em; white-space: nowrap; }
-	.collect-result { color: #3fb950; font-size: 0.75em; }
-	.collect-error { color: #f85149; }
 </style>
