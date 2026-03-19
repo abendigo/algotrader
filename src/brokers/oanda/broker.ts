@@ -121,6 +121,7 @@ export class OandaBroker implements Broker {
       units: Math.abs(parseFloat(fill.units)),
       filledPrice: parseFloat(fill.price),
       timestamp: new Date(fill.time).getTime(),
+      realizedPL: fill.pl ? parseFloat(fill.pl) : undefined,
     };
   }
 

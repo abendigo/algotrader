@@ -237,29 +237,22 @@ interface OandaPositionsResponse {
   }>;
 }
 
+interface OandaFillTransaction {
+  id: string;
+  instrument: string;
+  units: string;
+  price: string;
+  time: string;
+  pl?: string;
+  financing?: string;
+  accountBalance?: string;
+}
+
 interface OandaOrderResponse {
-  orderFillTransaction?: {
-    id: string;
-    instrument: string;
-    units: string;
-    price: string;
-    time: string;
-  };
+  orderFillTransaction?: OandaFillTransaction;
 }
 
 interface OandaClosePositionResponse {
-  longOrderFillTransaction?: {
-    id: string;
-    instrument: string;
-    units: string;
-    price: string;
-    time: string;
-  };
-  shortOrderFillTransaction?: {
-    id: string;
-    instrument: string;
-    units: string;
-    price: string;
-    time: string;
-  };
+  longOrderFillTransaction?: OandaFillTransaction;
+  shortOrderFillTransaction?: OandaFillTransaction;
 }

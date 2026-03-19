@@ -42,6 +42,8 @@ export interface OrderResult {
   units: number;
   filledPrice: number;
   timestamp: number;
+  /** Realized P&L from the broker (account currency). Only set on close. */
+  realizedPL?: number;
 }
 
 /** Current open position */

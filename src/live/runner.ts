@@ -16,6 +16,7 @@ import { OandaBroker } from "../brokers/oanda/index.js";
 import { getConfigForUser } from "../core/config.js";
 import { findUser } from "../core/users.js";
 import { loadStrategy } from "../core/strategy-loader.js";
+import { RecordingBroker } from "./recording-broker.js";
 import type { Config } from "../core/config.js";
 import type { Strategy } from "../core/strategy.js";
 import type { Tick } from "../core/types.js";
@@ -53,23 +54,9 @@ function getLiveDir(userId: string, accountId: string): string {
   return join(DATA_DIR, "users", userId, "live", accountId);
 }
 
-interface TradeRecord {
-  strategy: string;
-  instrument: string;
-  side: "buy" | "sell";
-  units: number;
-  entryTime: string;
-  entryBid: number;
-  entryAsk: number;
-  exitTime?: string;
-  exitBid?: number;
-  exitAsk?: number;
-  pnl?: number;
-  durationMs?: number;
-}
-
 class LiveRunner {
   private broker: OandaBroker;
+  private recordingBroker: RecordingBroker;
   private strategy: Strategy;
   private liveDir: string;
   private logFile: string;
@@ -82,7 +69,6 @@ class LiveRunner {
   private stream: { close: () => void } | null = null;
   private stopping = false;
   private accountLabel: string;
-  private openTrades = new Map<string, TradeRecord>();
 
   constructor(
     config: Config,
@@ -92,6 +78,7 @@ class LiveRunner {
     sessionFilePath: string | null = null,
   ) {
     this.broker = new OandaBroker(config);
+    this.recordingBroker = new RecordingBroker(this.broker, strategy.name);
     this.accountLabel = account.label;
     this.strategy = strategy;
     this.sessionFilePath = sessionFilePath;
@@ -183,21 +170,8 @@ class LiveRunner {
 
     this.updateSessionFile({ status: "running", pid: process.pid, lastHeartbeat: new Date().toISOString() });
 
-    const ctx = { broker: this.broker };
+    const ctx = { broker: this.recordingBroker };
     await this.strategy.init(ctx);
-
-    let knownPositions = new Map<string, number>();
-
-    const syncPositions = async (): Promise<Map<string, number>> => {
-      const positions = await this.broker.getPositions();
-      const map = new Map<string, number>();
-      for (const p of positions) {
-        map.set(p.instrument, p.side === "buy" ? p.units : -p.units);
-      }
-      return map;
-    };
-
-    knownPositions = await syncPositions();
 
     let processing = false;
     const tickQueue: Tick[] = [];
@@ -206,70 +180,39 @@ class LiveRunner {
       this.tickCount++;
 
       try {
-        const beforeSnapshot = new Map(knownPositions);
         await this.strategy.onTick(ctx, tick);
-        knownPositions = await syncPositions();
 
-        const allInstruments = new Set([...beforeSnapshot.keys(), ...knownPositions.keys()]);
-        for (const inst of allInstruments) {
-          const before = beforeSnapshot.get(inst) ?? 0;
-          const after = knownPositions.get(inst) ?? 0;
+        // Log new entries
+        for (const entry of this.recordingBroker.flushEntries()) {
+          this.log({
+            timestamp: entry.entryTime,
+            type: "trade",
+            message: `OPENED ${entry.side.toUpperCase()} ${entry.units} ${entry.instrument} @ ${entry.entryPrice} [${entry.entryOrderId}]`,
+            data: { instrument: entry.instrument, side: entry.side, units: entry.units, price: entry.entryPrice, orderId: entry.entryOrderId },
+          });
+        }
 
-          if (before === 0 && after !== 0) {
-            const side = after > 0 ? "buy" : "sell";
-            const ts = new Date(tick.timestamp).toISOString();
-            this.log({
-              timestamp: ts,
-              type: "trade",
-              message: `OPENED ${side.toUpperCase()} ${Math.abs(after)} ${inst} @ bid=${tick.bid} ask=${tick.ask}`,
-              data: { instrument: inst, side, units: Math.abs(after), bid: tick.bid, ask: tick.ask },
-            });
-            // Track open trade for P&L on exit
-            this.openTrades.set(inst, {
-              strategy: this.strategy.name,
-              instrument: inst,
-              side: side as "buy" | "sell",
-              units: Math.abs(after),
-              entryTime: ts,
-              entryBid: tick.bid,
-              entryAsk: tick.ask,
-            });
-          } else if (before !== 0 && after === 0) {
-            const ts = new Date(tick.timestamp).toISOString();
-            const entry = this.openTrades.get(inst);
-            let pnl = 0;
-            let durationMs = 0;
-            if (entry) {
-              // P&L: buy entered at ask, exit at bid; sell entered at bid, exit at ask
-              const entryPrice = entry.side === "buy" ? entry.entryAsk : entry.entryBid;
-              const exitPrice = entry.side === "buy" ? tick.bid : tick.ask;
-              pnl = entry.side === "buy"
-                ? (exitPrice - entryPrice) * entry.units
-                : (entryPrice - exitPrice) * entry.units;
-              durationMs = tick.timestamp - new Date(entry.entryTime).getTime();
+        // Log and persist completed trades
+        for (const trade of this.recordingBroker.flushTrades()) {
+          appendFileSync(this.tradesFile, JSON.stringify(trade) + "\n");
+          const pnlStr = (trade.pnl ?? 0) >= 0 ? `+${(trade.pnl ?? 0).toFixed(2)}` : (trade.pnl ?? 0).toFixed(2);
+          const durStr = trade.durationMs ? ` (${Math.round(trade.durationMs / 60000)}min)` : "";
+          this.log({
+            timestamp: trade.exitTime!,
+            type: "exit",
+            message: `CLOSED ${trade.instrument} @ ${trade.exitPrice} | PnL=${pnlStr}${durStr} [${trade.exitOrderId}]`,
+            data: { instrument: trade.instrument, exitPrice: trade.exitPrice, pnl: trade.pnl, durationMs: trade.durationMs, orderId: trade.exitOrderId },
+          });
+        }
 
-              // Write completed trade record
-              const record: TradeRecord = {
-                ...entry,
-                exitTime: ts,
-                exitBid: tick.bid,
-                exitAsk: tick.ask,
-                pnl,
-                durationMs,
-              };
-              appendFileSync(this.tradesFile, JSON.stringify(record) + "\n");
-              this.openTrades.delete(inst);
-            }
-
-            const pnlStr = pnl >= 0 ? `+${pnl.toFixed(2)}` : pnl.toFixed(2);
-            const durStr = durationMs > 0 ? ` (${Math.round(durationMs / 60000)}min)` : "";
-            this.log({
-              timestamp: ts,
-              type: "exit",
-              message: `CLOSED ${inst} @ bid=${tick.bid} ask=${tick.ask} | PnL=${pnlStr}${durStr}`,
-              data: { instrument: inst, bid: tick.bid, ask: tick.ask, pnl, durationMs },
-            });
-          }
+        // Log failures for debugging
+        for (const fail of this.recordingBroker.flushFailures()) {
+          this.log({
+            timestamp: fail.timestamp,
+            type: "error",
+            message: `${fail.method}(${fail.instrument}) FAILED: ${fail.error}`,
+            data: { method: fail.method, instrument: fail.instrument, error: fail.error, request: fail.request },
+          });
         }
 
         this.writeState(tick.timestamp);

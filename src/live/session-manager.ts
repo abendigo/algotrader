@@ -9,6 +9,7 @@
 import { OandaBroker } from "../brokers/oanda/index.js";
 import { getConfigForUser } from "../core/config.js";
 import { loadStrategy } from "../core/strategy-loader.js";
+import { RecordingBroker } from "./recording-broker.js";
 import type { Strategy, StrategyContext, RecoveryConfig } from "../core/strategy.js";
 import type { Config } from "../core/config.js";
 import type { Tick, Position } from "../core/types.js";
@@ -43,6 +44,7 @@ interface LiveSession {
   strategyName: string;
   strategy: Strategy;
   broker: OandaBroker;
+  recordingBroker: RecordingBroker;
   ctx: StrategyContext;
   config: Record<string, unknown>;
   sessionFile: SessionFile;
@@ -55,25 +57,9 @@ interface LiveSession {
   tickCount: number;
   consecutiveErrors: number;
   lastStatusTime: number;
-  openTrades: Map<string, TradeRecord>;
   processing: boolean;
   tickQueue: Tick[];
   recovery?: RecoveryConfig;
-}
-
-interface TradeRecord {
-  strategy: string;
-  instrument: string;
-  side: "buy" | "sell";
-  units: number;
-  entryTime: string;
-  entryBid: number;
-  entryAsk: number;
-  exitTime?: string;
-  exitBid?: number;
-  exitAsk?: number;
-  pnl?: number;
-  durationMs?: number;
 }
 
 interface LogEntry {
@@ -260,13 +246,15 @@ export class SessionManager {
     };
     writeFileSync(sessionFilePath, JSON.stringify(sessionFile, null, 2));
 
+    const recordingBroker = new RecordingBroker(broker, strategyName);
     const session: LiveSession = {
       sessionId,
       accountId,
       strategyName,
       strategy,
       broker,
-      ctx: { broker },
+      recordingBroker,
+      ctx: { broker: recordingBroker },
       config,
       sessionFile,
       sessionFilePath,
@@ -278,7 +266,6 @@ export class SessionManager {
       tickCount: 0,
       consecutiveErrors: 0,
       lastStatusTime: 0,
-      openTrades: new Map(),
       processing: false,
       tickQueue: [],
       recovery,
@@ -436,15 +423,41 @@ export class SessionManager {
     session.tickCount++;
 
     try {
-      const beforeSnapshot = await this.getPositionSnapshot(session);
       await session.strategy.onTick(session.ctx, tick);
-      const afterSnapshot = await this.getPositionSnapshot(session);
-
-      // Reset consecutive errors on success
       session.consecutiveErrors = 0;
 
-      // Track position changes
-      this.trackPositionChanges(session, tick, beforeSnapshot, afterSnapshot);
+      // Log new entries
+      for (const entry of session.recordingBroker.flushEntries()) {
+        this.log(session, {
+          timestamp: entry.entryTime,
+          type: "trade",
+          message: `OPENED ${entry.side.toUpperCase()} ${entry.units} ${entry.instrument} @ ${entry.entryPrice} [${entry.entryOrderId}]`,
+          data: { instrument: entry.instrument, side: entry.side, units: entry.units, price: entry.entryPrice, orderId: entry.entryOrderId },
+        });
+      }
+
+      // Log and persist completed trades
+      for (const trade of session.recordingBroker.flushTrades()) {
+        appendFileSync(session.tradesFile, JSON.stringify(trade) + "\n");
+        const pnlStr = (trade.pnl ?? 0) >= 0 ? `+${(trade.pnl ?? 0).toFixed(2)}` : (trade.pnl ?? 0).toFixed(2);
+        const durStr = trade.durationMs ? ` (${Math.round(trade.durationMs / 60000)}min)` : "";
+        this.log(session, {
+          timestamp: trade.exitTime!,
+          type: "exit",
+          message: `CLOSED ${trade.instrument} @ ${trade.exitPrice} | PnL=${pnlStr}${durStr} [${trade.exitOrderId}]`,
+          data: { instrument: trade.instrument, exitPrice: trade.exitPrice, pnl: trade.pnl, durationMs: trade.durationMs, orderId: trade.exitOrderId },
+        });
+      }
+
+      // Log failures for debugging
+      for (const fail of session.recordingBroker.flushFailures()) {
+        this.log(session, {
+          timestamp: fail.timestamp,
+          type: "error",
+          message: `${fail.method}(${fail.instrument}) FAILED: ${fail.error}`,
+          data: { method: fail.method, instrument: fail.instrument, error: fail.error, request: fail.request as any },
+        });
+      }
 
       // Write state
       this.writeState(session, tick.timestamp);
@@ -500,7 +513,8 @@ export class SessionManager {
     try {
       // Reload strategy
       session.strategy = await loadStrategy(this.userId, session.strategyName, session.config);
-      session.ctx = { broker: session.broker };
+      session.recordingBroker = new RecordingBroker(session.broker, session.strategyName);
+      session.ctx = { broker: session.recordingBroker };
       session.sessionFile.restartCount++;
       session.tickQueue = [];
       session.processing = false;
@@ -514,81 +528,6 @@ export class SessionManager {
       this.writeSessionFile(session);
       this.sessions.delete(session.sessionId);
       this.checkIdle();
-    }
-  }
-
-  private async getPositionSnapshot(session: LiveSession): Promise<Map<string, number>> {
-    const positions = await session.broker.getPositions();
-    const map = new Map<string, number>();
-    for (const p of positions) {
-      map.set(p.instrument, p.side === "buy" ? p.units : -p.units);
-    }
-    return map;
-  }
-
-  private trackPositionChanges(
-    session: LiveSession,
-    tick: Tick,
-    before: Map<string, number>,
-    after: Map<string, number>,
-  ): void {
-    const allInstruments = new Set([...before.keys(), ...after.keys()]);
-    for (const inst of allInstruments) {
-      const bef = before.get(inst) ?? 0;
-      const aft = after.get(inst) ?? 0;
-
-      if (bef === 0 && aft !== 0) {
-        const side = aft > 0 ? "buy" : "sell";
-        const ts = new Date(tick.timestamp).toISOString();
-        this.log(session, {
-          timestamp: ts,
-          type: "trade",
-          message: `OPENED ${side.toUpperCase()} ${Math.abs(aft)} ${inst} @ bid=${tick.bid} ask=${tick.ask}`,
-          data: { instrument: inst, side, units: Math.abs(aft), bid: tick.bid, ask: tick.ask },
-        });
-        session.openTrades.set(inst, {
-          strategy: session.strategyName,
-          instrument: inst,
-          side: side as "buy" | "sell",
-          units: Math.abs(aft),
-          entryTime: ts,
-          entryBid: tick.bid,
-          entryAsk: tick.ask,
-        });
-      } else if (bef !== 0 && aft === 0) {
-        const ts = new Date(tick.timestamp).toISOString();
-        const entry = session.openTrades.get(inst);
-        let pnl = 0;
-        let durationMs = 0;
-        if (entry) {
-          const entryPrice = entry.side === "buy" ? entry.entryAsk : entry.entryBid;
-          const exitPrice = entry.side === "buy" ? tick.bid : tick.ask;
-          pnl = entry.side === "buy"
-            ? (exitPrice - entryPrice) * entry.units
-            : (entryPrice - exitPrice) * entry.units;
-          durationMs = tick.timestamp - new Date(entry.entryTime).getTime();
-
-          const record: TradeRecord = {
-            ...entry,
-            exitTime: ts,
-            exitBid: tick.bid,
-            exitAsk: tick.ask,
-            pnl,
-            durationMs,
-          };
-          appendFileSync(session.tradesFile, JSON.stringify(record) + "\n");
-          session.openTrades.delete(inst);
-        }
-
-        const pnlStr = pnl >= 0 ? `+${pnl.toFixed(2)}` : pnl.toFixed(2);
-        const durStr = durationMs > 0 ? ` (${Math.round(durationMs / 60000)}min)` : "";
-        this.log(session, {
-          timestamp: ts,
-          type: "exit",
-          message: `CLOSED ${inst} @ bid=${tick.bid} ask=${tick.ask} | PnL=${pnlStr}${durStr}`,
-          data: { instrument: inst, bid: tick.bid, ask: tick.ask, pnl, durationMs },
-        });
-      }
     }
   }
 
