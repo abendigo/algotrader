@@ -143,6 +143,23 @@
     {/if}
   </div>
 
+  {#if collectJobs.some((j) => j.progress.status === "running")}
+    <div class="active-jobs">
+      <h3>Active Collections</h3>
+      {#each collectJobs.filter((j) => j.progress.status === "running") as job}
+        <div class="job-row">
+          <span class="job-gran">{job.granularity}</span>
+          <span class="job-dir">{job.direction}</span>
+          <span class="job-inst">{job.progress.currentInstrument ?? "Starting..."}</span>
+          <span class="job-progress">{job.progress.completedInstruments}/{job.progress.totalInstruments} instruments — {job.progress.fetchedDayFiles}/{job.progress.totalDayFiles} files</span>
+          {#if job.progress.errors > 0}
+            <span class="job-errors">{job.progress.errors} errors</span>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {/if}
+
   {#each data.granularities as gran}
     {@const hasData = Object.keys(gran.coverage).length > 0}
     {@const job = getJobForGran(gran.name)}
@@ -277,6 +294,21 @@
 </div>
 
 <style>
+  .active-jobs {
+    background: #161b22; border: 1px solid #d29922; border-radius: 6px;
+    padding: 12px 16px; margin-bottom: 16px;
+  }
+  .active-jobs h3 { font-size: 0.85em; color: #d29922; margin: 0 0 8px; }
+  .job-row {
+    display: flex; gap: 12px; align-items: center; font-size: 0.85em;
+    padding: 4px 0; border-bottom: 1px solid #21262d;
+  }
+  .job-row:last-child { border-bottom: none; }
+  .job-gran { font-weight: 700; font-family: monospace; min-width: 30px; }
+  .job-dir { color: #8b949e; min-width: 60px; }
+  .job-inst { color: #d29922; min-width: 80px; }
+  .job-progress { color: #8b949e; }
+  .job-errors { color: #f85149; }
   .data-page h1 {
     font-size: 1.4em;
     margin-bottom: 16px;
