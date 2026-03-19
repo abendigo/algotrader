@@ -1,7 +1,8 @@
-import type { BacktestResult } from "./types.js";
+import type { BacktestResult, Trade } from "./types.js";
+import type { TestResult, TestTrade } from "../core/test-result.js";
 
-/** Generate a CSV string from backtest results */
-export function exportCSV(result: BacktestResult): string {
+/** Generate a CSV string from test results (backtest or paper trading) */
+export function exportCSV(result: TestResult | BacktestResult): string {
   const headers = [
     "Trade #",
     "Instrument",
@@ -29,8 +30,9 @@ export function exportCSV(result: BacktestResult): string {
 
   const rows = result.trades.map((t, i) => {
     const durationMin = ((t.exitTime - t.entryTime) / 60000).toFixed(1);
-    const es = t.entrySignal;
-    const xs = t.exitSignal;
+    const bt = t as Trade;
+    const es = bt.entrySignal;
+    const xs = bt.exitSignal;
 
     const entryReason = es
       ? `Z=${es.zScore.toFixed(2)}, actual ${es.actualRate.toFixed(5)} vs implied ${es.impliedRate.toFixed(5)} (dev ${es.deviation.toFixed(4)}%)`

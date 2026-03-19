@@ -1,4 +1,5 @@
 import type { BacktestConfig, BacktestResult, Trade } from "./types.js";
+import type { TestResult, TestTrade } from "../core/test-result.js";
 
 function getStrategyExplainer(strategy?: string): string {
   const wrap = (html: string) =>
@@ -168,8 +169,8 @@ function buildConfigSection(meta?: ReportMeta): string {
 </div>`;
 }
 
-/** Generate a self-contained HTML report from backtest results */
-export function exportHTML(result: BacktestResult, strategyName?: string, meta?: ReportMeta): string {
+/** Generate a self-contained HTML report from test results (backtest or paper trading) */
+export function exportHTML(result: TestResult | BacktestResult, strategyName?: string, meta?: ReportMeta): string {
   const r = result;
   const startDate = new Date(r.startTime).toISOString().slice(0, 16);
   const endDate = new Date(r.endTime).toISOString().slice(0, 16);
@@ -246,8 +247,8 @@ export function exportHTML(result: BacktestResult, strategyName?: string, meta?:
 </head>
 <body>
 
-<h1>${strategyName ?? "Strategy"} — Backtest Report</h1>
-<p style="color:#8b949e; font-size:0.9em">${startDate} to ${endDate} &middot; ${r.totalTicks.toLocaleString()} ticks &middot; ${r.config.granularity} data</p>
+<h1>${strategyName ?? "Strategy"} — ${"source" in r ? (r as TestResult).source === "paper" ? "Paper Trading" : "Backtest" : "Backtest"} Report</h1>
+<p style="color:#8b949e; font-size:0.9em">${startDate} to ${endDate}${"totalTicks" in r ? ` &middot; ${(r as BacktestResult).totalTicks.toLocaleString()} ticks` : ""}${"config" in r && (r as BacktestResult).config?.granularity ? ` &middot; ${(r as BacktestResult).config.granularity} data` : ""}</p>
 
 ${getStrategyExplainer(strategyName)}
 
@@ -264,7 +265,7 @@ ${buildConfigSection(meta)}
   <div class="card"><div class="label">Win Rate</div><div class="value">${(r.winRate * 100).toFixed(1)}%</div></div>
   <div class="card"><div class="label">Avg Win / Loss</div><div class="value"><span class="pos">$${r.avgWin.toFixed(2)}</span> / <span class="neg">$${r.avgLoss.toFixed(2)}</span></div></div>
   <div class="card"><div class="label">Profit Factor</div><div class="value">${r.profitFactor === Infinity ? "&infin;" : r.profitFactor.toFixed(2)}</div></div>
-  <div class="card"><div class="label">Spread Model</div><div class="value">${typeof r.config.spread === "number" ? r.config.spread + " flat" : "Per-instrument"}</div></div>
+  ${"config" in r && (r as BacktestResult).config ? `<div class="card"><div class="label">Spread Model</div><div class="value">${typeof (r as BacktestResult).config.spread === "number" ? (r as BacktestResult).config.spread + " flat" : "Per-instrument"}</div></div>` : ""}
 </div>
 
 <h2>Equity Curve</h2>
@@ -413,15 +414,16 @@ function formatExitReason(xs: Trade["exitSignal"], es: Trade["entrySignal"], str
   }
 }
 
-function buildTradeRow(t: Trade, num: number, strategy?: string): string {
+function buildTradeRow(t: Trade | TestTrade, num: number, strategy?: string): string {
   const entryTime = new Date(t.entryTime).toISOString().slice(0, 19).replace("T", " ");
   const exitTime = new Date(t.exitTime).toISOString().slice(0, 19).replace("T", " ");
   const durationMin = ((t.exitTime - t.entryTime) / 60000).toFixed(0);
   const pnlClass = t.pnl >= 0 ? "pos" : "neg";
   const pnlSign = t.pnl >= 0 ? "+" : "";
 
-  const entryReason = formatEntryReason(t.entrySignal, strategy);
-  const exitReason = formatExitReason(t.exitSignal, t.entrySignal, strategy);
+  const bt = t as Trade;
+  const entryReason = formatEntryReason(bt.entrySignal, strategy);
+  const exitReason = formatExitReason(bt.exitSignal, bt.entrySignal, strategy);
 
   return `<tr data-inst="${t.instrument}" data-side="${t.side}" data-pnl="${t.pnl.toFixed(2)}">
     <td data-sort="${num}">${num}</td>
@@ -439,7 +441,7 @@ function buildTradeRow(t: Trade, num: number, strategy?: string): string {
   </tr>`;
 }
 
-function buildEquityCurve(r: BacktestResult): string {
+function buildEquityCurve(r: TestResult | BacktestResult): string {
   const curve = r.equityCurve;
   if (curve.length < 2) return "<p>Not enough data for chart</p>";
 

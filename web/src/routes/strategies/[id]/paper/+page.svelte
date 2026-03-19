@@ -183,6 +183,7 @@
 						<th>Trades</th>
 						<th>W/L</th>
 						<th>P&L</th>
+						<th></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -202,6 +203,12 @@
 							<td>{ps.trades}</td>
 							<td>{ps.winners}W / {ps.losers}L</td>
 							<td class:pos={ps.totalPnl > 0} class:neg={ps.totalPnl < 0}>{ps.totalPnl >= 0 ? "+" : ""}{ps.totalPnl.toFixed(2)}</td>
+							<td class="report-links">
+								{#if ps.trades > 0}
+									<a href="/api/live/report?session={ps.sessionId}&format=html" target="_blank">HTML</a>
+									<a href="/api/live/report?session={ps.sessionId}&format=csv">CSV</a>
+								{/if}
+							</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -246,4 +253,6 @@
 	.status-badge.error { background: #5d1a1a; color: #f85149; }
 	.pos { color: #3fb950; }
 	.neg { color: #f85149; }
+	.report-links { display: flex; gap: 8px; }
+	.report-links a { font-size: 0.85em; color: #58a6ff; }
 </style>
