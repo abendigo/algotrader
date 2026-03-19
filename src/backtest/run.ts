@@ -147,6 +147,16 @@ async function main() {
     if (strategyParams[k] === undefined) delete strategyParams[k];
   }
 
+  // Generic config overrides: --config.key=value (e.g., --config.stopAtrMult=3.0)
+  for (const arg of process.argv) {
+    const match = arg.match(/^--config\.(\w+)=(.+)$/);
+    if (match) {
+      const [, key, raw] = match;
+      const num = parseFloat(raw);
+      strategyParams[key] = isNaN(num) ? raw : num;
+    }
+  }
+
   const paramDescriptions: Record<string, string> = {
     units: "Position size in base currency units per trade",
     entryDelay: "Minutes to wait after breakout before entering (reduces false breakouts)",
