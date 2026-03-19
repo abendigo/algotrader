@@ -3,6 +3,7 @@ import type { RequestHandler } from "./$types.js";
 import { getSystemApiKey } from "$lib/server/system-config.js";
 import { collect, getExistingDataRange } from "../../../../../../src/data/collect.js";
 import { GRANULARITY_SECONDS, type Granularity } from "../../../../../../src/core/types.js";
+import { createJob, updateJob, getAllJobs, clearFinishedJobs } from "$lib/server/collect-jobs.js";
 
 /** Batch sizes in days, scaled by granularity */
 function getBatchDays(granularity: string): number {
@@ -16,6 +17,7 @@ function getBatchDays(granularity: string): number {
 /**
  * POST /api/admin/collect
  * Body: { granularity: string, direction: "latest" | "previous" }
+ * Starts a collection job and returns immediately with the job ID.
  */
 export const POST: RequestHandler = async ({ request, locals }) => {
   const user = locals.user;
@@ -43,46 +45,56 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   let to: Date;
 
   if (direction === "latest") {
-    // From last data (minus 1 day overlap) to now
     if (existing) {
-      from = new Date(new Date(existing.latest).getTime() - 86_400_000); // 1 day overlap
+      from = new Date(new Date(existing.latest).getTime() - 86_400_000);
     } else {
-      // No data yet — fetch the last batchDays
       from = new Date(Date.now() - batchDays * 86_400_000);
     }
     to = new Date();
   } else {
-    // Fetch further back in history
     if (existing) {
       to = new Date(existing.earliest);
       from = new Date(to.getTime() - batchDays * 86_400_000);
     } else {
-      // No data yet — fetch the last batchDays
       to = new Date();
       from = new Date(to.getTime() - batchDays * 86_400_000);
     }
   }
 
-  const messages: string[] = [];
-  const result = await collect({
+  // Create job and start collection in background
+  const job = createJob(granularity, direction);
+
+  // Fire and forget — the job runs asynchronously
+  collect({
     apiKey,
     granularity: granularity as Granularity,
     from,
     to,
-    onProgress: (msg) => messages.push(msg),
+    onProgress: (progress) => updateJob(job.id, progress),
+  }).catch((err) => {
+    updateJob(job.id, {
+      status: "error",
+      totalInstruments: 0,
+      completedInstruments: 0,
+      totalDayFiles: 0,
+      fetchedDayFiles: 0,
+      skippedDayFiles: 0,
+      errors: 1,
+      message: err instanceof Error ? err.message : String(err),
+    });
   });
 
   return json({
     ok: true,
-    ...result,
-    messages,
+    jobId: job.id,
     range: { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) },
   });
 };
 
 /**
- * GET /api/admin/collect?granularity=M1
- * Returns existing data range for a granularity.
+ * GET /api/admin/collect
+ * Returns all collection jobs (for polling).
+ * ?action=clear removes finished jobs.
  */
 export const GET: RequestHandler = ({ url, locals }) => {
   const user = locals.user;
@@ -90,11 +102,9 @@ export const GET: RequestHandler = ({ url, locals }) => {
     return json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const granularity = url.searchParams.get("granularity");
-  if (!granularity) {
-    return json({ error: "granularity param required" }, { status: 400 });
+  if (url.searchParams.get("action") === "clear") {
+    clearFinishedJobs();
   }
 
-  const range = getExistingDataRange(granularity);
-  return json({ range });
+  return json({ jobs: getAllJobs() });
 };

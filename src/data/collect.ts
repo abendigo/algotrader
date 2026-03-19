@@ -89,13 +89,34 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/** Progress update from a collection run */
+export interface CollectProgress {
+  status: "running" | "done" | "error";
+  /** Current instrument being fetched */
+  currentInstrument?: string;
+  /** Total instruments to process */
+  totalInstruments: number;
+  /** Instruments completed so far */
+  completedInstruments: number;
+  /** Total day-files to fetch (across all instruments) */
+  totalDayFiles: number;
+  /** Day-files fetched so far */
+  fetchedDayFiles: number;
+  /** Day-files skipped (already cached) */
+  skippedDayFiles: number;
+  /** Errors encountered */
+  errors: number;
+  /** Human-readable message */
+  message: string;
+}
+
 /** Options for programmatic collection */
 export interface CollectOptions {
   apiKey: string;
   granularity: Granularity;
   from: Date;
   to: Date;
-  onProgress?: (message: string) => void;
+  onProgress?: (progress: CollectProgress) => void;
 }
 
 /** Result of a collection run */
@@ -139,7 +160,6 @@ export function getExistingDataRange(granularity: string): { earliest: string; l
  */
 export async function collect(options: CollectOptions): Promise<CollectResult> {
   const { apiKey, granularity, from, to, onProgress } = options;
-  const log = onProgress ?? console.log;
 
   const config: Config = {
     OANDA_API_KEY: apiKey,
@@ -151,20 +171,14 @@ export async function collect(options: CollectOptions): Promise<CollectResult> {
   const dates = dateRange(from, to);
   if (dates.length === 0) return { fetched: 0, skipped: 0, errors: 0 };
 
-  log(
-    `Collecting ${granularity} candles for ${ALL_INSTRUMENTS.length} instruments, ` +
-      `${dates.length} days (${formatDate(dates[0])} to ${formatDate(dates[dates.length - 1])})`,
-  );
-
-  let fetched = 0;
-  let skipped = 0;
-  let errors = 0;
+  // Count total work upfront
+  let totalDayFiles = 0;
+  let skippedDayFiles = 0;
+  const instrumentWork: { instrument: string; missing: Date[] }[] = [];
 
   for (const instrument of ALL_INSTRUMENTS) {
     const instDir = join(DATA_DIR, granularity, instrument);
-    if (!existsSync(instDir)) {
-      mkdirSync(instDir, { recursive: true });
-    }
+    if (!existsSync(instDir)) mkdirSync(instDir, { recursive: true });
 
     const missing: Date[] = [];
     for (const day of dates) {
@@ -172,32 +186,57 @@ export async function collect(options: CollectOptions): Promise<CollectResult> {
       if (!existsSync(file)) {
         missing.push(day);
       } else {
-        skipped++;
+        skippedDayFiles++;
       }
     }
+    totalDayFiles += missing.length;
+    if (missing.length > 0) {
+      instrumentWork.push({ instrument, missing });
+    }
+  }
 
-    if (missing.length === 0) continue;
+  let fetchedDayFiles = 0;
+  let errors = 0;
+  let completedInstruments = 0;
 
-    let totalCandles = 0;
+  const report = (instrument: string | undefined, message: string, status: "running" | "done" | "error" = "running") => {
+    onProgress?.({
+      status,
+      currentInstrument: instrument,
+      totalInstruments: instrumentWork.length,
+      completedInstruments,
+      totalDayFiles,
+      fetchedDayFiles,
+      skippedDayFiles,
+      errors,
+      message,
+    });
+  };
+
+  report(undefined, `Collecting ${granularity}: ${instrumentWork.length} instruments, ${totalDayFiles} day-files to fetch`);
+
+  for (const { instrument, missing } of instrumentWork) {
+    report(instrument, `Fetching ${instrument} (${missing.length} days)`);
+
     for (const day of missing) {
       try {
         const candles = await collectDay(client, instrument, granularity, day);
-        const file = join(instDir, `${formatDate(day)}.json`);
+        const file = join(DATA_DIR, granularity, instrument, `${formatDate(day)}.json`);
         writeFileSync(file, JSON.stringify(candles));
-        totalCandles += candles.length;
-        fetched++;
+        fetchedDayFiles++;
       } catch (err) {
-        log(`  ${instrument} ${formatDate(day)}: FAILED - ${err instanceof Error ? err.message : err}`);
         errors++;
+        report(instrument, `${instrument} ${formatDate(day)}: ${err instanceof Error ? err.message : err}`);
       }
     }
 
-    log(`  ${instrument}: ${missing.length} days fetched (${totalCandles} candles)`);
+    completedInstruments++;
+    report(instrument, `${instrument}: ${missing.length} days fetched`);
     await sleep(200);
   }
 
-  log(`Done. Fetched ${fetched} day-files, skipped ${skipped} cached, ${errors} errors.`);
-  return { fetched, skipped, errors };
+  report(undefined, `Done. Fetched ${fetchedDayFiles}, skipped ${skippedDayFiles}, errors ${errors}.`, errors > 0 ? "error" : "done");
+  return { fetched: fetchedDayFiles, skipped: skippedDayFiles, errors };
 }
 
 // --- CLI entry point ---
@@ -232,7 +271,7 @@ async function main() {
   const to = new Date();
   const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
 
-  await collect({ apiKey, granularity, from, to });
+  await collect({ apiKey, granularity, from, to, onProgress: (p) => console.log(p.message) });
 }
 
 // Only run CLI when executed directly (not when imported by the web app)

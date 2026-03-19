@@ -4,7 +4,24 @@
 
 	let { data, form } = $props();
 	let stoppingService = $state<string | null>(null);
-	let collecting = $state<Record<string, string>>({});
+
+	interface CollectJob {
+		id: string;
+		granularity: string;
+		direction: string;
+		progress: {
+			status: "running" | "done" | "error";
+			currentInstrument?: string;
+			totalInstruments: number;
+			completedInstruments: number;
+			totalDayFiles: number;
+			fetchedDayFiles: number;
+			skippedDayFiles: number;
+			errors: number;
+			message: string;
+		};
+	}
+	let collectJobs = $state<CollectJob[]>([]);
 
 	// Auto-refresh services every 5 seconds
 	let servicesData = $state(data.services);
@@ -28,11 +45,32 @@
 		return `${m}m`;
 	}
 
-	async function collectData(granularity: string, direction: "latest" | "previous") {
-		const key = `${granularity}-${direction}`;
-		collecting[key] = "running";
-		collecting = { ...collecting };
+	// Poll collection jobs every 2 seconds when any are running
+	$effect(() => {
+		const hasRunning = collectJobs.some((j) => j.progress.status === "running");
+		if (!hasRunning) return;
+		const interval = setInterval(async () => {
+			try {
+				const res = await fetch("/api/admin/collect");
+				if (res.ok) {
+					const data = await res.json();
+					collectJobs = data.jobs;
+					// Refresh data table when jobs finish
+					if (!data.jobs.some((j: CollectJob) => j.progress.status === "running")) {
+						await invalidateAll();
+					}
+				}
+			} catch { /* ignore */ }
+		}, 2000);
+		return () => clearInterval(interval);
+	});
 
+	function getJobForGran(granularity: string): CollectJob | undefined {
+		return collectJobs.find((j) => j.granularity === granularity && j.progress.status === "running")
+			?? collectJobs.findLast((j: CollectJob) => j.granularity === granularity);
+	}
+
+	async function collectData(granularity: string, direction: "latest" | "previous") {
 		try {
 			const res = await fetch("/api/admin/collect", {
 				method: "POST",
@@ -40,17 +78,14 @@
 				body: JSON.stringify({ granularity, direction }),
 			});
 			const result = await res.json();
-			if (result.ok) {
-				collecting[key] = `${result.fetched} fetched (${result.range.from} to ${result.range.to})`;
-			} else {
-				collecting[key] = `Error: ${result.error}`;
+			if (!result.ok) return;
+			// Immediately poll for job status
+			const jobsRes = await fetch("/api/admin/collect");
+			if (jobsRes.ok) {
+				const data = await jobsRes.json();
+				collectJobs = data.jobs;
 			}
-		} catch (err) {
-			collecting[key] = "Failed";
-		}
-		collecting = { ...collecting };
-		// Refresh data summary
-		await invalidateAll();
+		} catch { /* ignore */ }
 	}
 
 	async function stopService(userId: string) {
@@ -230,20 +265,23 @@
 				</thead>
 				<tbody>
 					{#each broker.granularities as gran}
-						{@const latestKey = `${gran.name}-latest`}
-						{@const prevKey = `${gran.name}-previous`}
-						<tr class:no-data={gran.instruments === 0}>
+						{@const job = getJobForGran(gran.name)}
+						<tr class:no-data={gran.instruments === 0 && !job}>
 							<td class="mono">{gran.name}</td>
 							<td>{gran.instruments || "—"}</td>
 							<td>{gran.days || "—"}</td>
 							<td class="date">{gran.dateRange.from ? `${gran.dateRange.from} to ${gran.dateRange.to}` : "—"}</td>
 							<td class="collect-actions">
-								{#if collecting[latestKey] === "running" || collecting[prevKey] === "running"}
-									<span class="collecting">Collecting...</span>
-								{:else if collecting[latestKey] && collecting[latestKey] !== "running"}
-									<span class="collect-result">{collecting[latestKey]}</span>
-								{:else if collecting[prevKey] && collecting[prevKey] !== "running"}
-									<span class="collect-result">{collecting[prevKey]}</span>
+								{#if job?.progress.status === "running"}
+									<span class="collecting">
+										{job.progress.currentInstrument ?? "Starting"}
+										— {job.progress.fetchedDayFiles}/{job.progress.totalDayFiles}
+										({job.progress.completedInstruments}/{job.progress.totalInstruments} instruments)
+									</span>
+								{:else if job && job.progress.status !== "running"}
+									<span class="collect-result" class:collect-error={job.progress.status === "error"}>
+										{job.progress.fetchedDayFiles} fetched{job.progress.errors > 0 ? `, ${job.progress.errors} errors` : ""}
+									</span>
 								{:else if data.hasSystemApiKey}
 									<button class="btn-sm btn-collect" onclick={() => collectData(gran.name, "latest")}>
 										Fetch Latest
@@ -421,6 +459,7 @@
 		white-space: nowrap;
 	}
 	.btn-collect:hover { border-color: #58a6ff; }
-	.collecting { color: #d29922; font-size: 0.8em; }
-	.collect-result { color: #8b949e; font-size: 0.75em; }
+	.collecting { color: #d29922; font-size: 0.8em; white-space: nowrap; }
+	.collect-result { color: #3fb950; font-size: 0.75em; }
+	.collect-error { color: #f85149; }
 </style>
