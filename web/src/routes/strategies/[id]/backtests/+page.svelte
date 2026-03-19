@@ -3,6 +3,7 @@
 	import { invalidateAll } from "$app/navigation";
 
 	let { data } = $props();
+	// svelte-ignore state_referenced_locally
 	const initialGranularity = data.availableGranularities[0]?.name ?? "M1";
 
 	interface ConfigFieldDef {
@@ -386,8 +387,8 @@
 	{/if}
 
 	{#if deleteTarget}
-		<div class="modal-backdrop" onclick={() => deleteTarget = null}>
-			<div class="modal" onclick={(e) => e.stopPropagation()}>
+		<div class="modal-backdrop" role="none" onclick={() => deleteTarget = null}>
+			<div class="modal" role="none" onclick={(e) => e.stopPropagation()}>
 				<h3>Delete backtest result?</h3>
 				<p class="modal-warning">This will remove the JSON, HTML, and CSV files. This cannot be undone.</p>
 				<div class="modal-actions">

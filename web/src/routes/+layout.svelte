@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { navigating } from "$app/stores";
 
-	declare const __GIT_SHA__: string;
 	let { children, data } = $props();
 	const version = __GIT_SHA__;
 </script>

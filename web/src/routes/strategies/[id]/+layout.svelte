@@ -145,8 +145,8 @@
 	</div>
 
 	{#if forkTarget}
-		<div class="modal-backdrop" onclick={() => forkTarget = false}>
-			<div class="modal" onclick={(e) => e.stopPropagation()}>
+		<div class="modal-backdrop" role="none" onclick={() => forkTarget = false}>
+			<div class="modal" role="none" onclick={(e) => e.stopPropagation()}>
 				<h3>Fork {data.strategy.id}.ts</h3>
 				<label>
 					<span>New strategy name</span>
@@ -162,8 +162,8 @@
 	{/if}
 
 	{#if showDelete}
-		<div class="modal-backdrop" onclick={() => showDelete = false}>
-			<div class="modal" onclick={(e) => e.stopPropagation()}>
+		<div class="modal-backdrop" role="none" onclick={() => showDelete = false}>
+			<div class="modal" role="none" onclick={(e) => e.stopPropagation()}>
 				<h3>Delete {data.strategy.id}.ts?</h3>
 				<p class="modal-warning">This cannot be undone.</p>
 				<div class="modal-actions">
@@ -175,8 +175,8 @@
 	{/if}
 
 	{#if showRevert}
-		<div class="modal-backdrop" onclick={() => showRevert = false}>
-			<div class="modal" onclick={(e) => e.stopPropagation()}>
+		<div class="modal-backdrop" role="none" onclick={() => showRevert = false}>
+			<div class="modal" role="none" onclick={(e) => e.stopPropagation()}>
 				<h3>Revert {data.strategy.id}.ts?</h3>
 				<p class="modal-warning">This will overwrite your version with the original.</p>
 				<div class="modal-actions">

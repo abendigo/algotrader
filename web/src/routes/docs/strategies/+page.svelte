@@ -1,10 +1,11 @@
 <script lang="ts">
 	let { data } = $props();
-	const d = data.docs;
+	// svelte-ignore state_referenced_locally
+	const d = data.docs as Record<string, any>;
 
 	// Helper: get interface info
-	function iface(name: string) { return d.interfaces[name]; }
-	function snippet(name: string) { return d.snippets[name] ?? ""; }
+	function iface(name: string) { return (d.interfaces as Record<string, any>)[name]; }
+	function snippet(name: string) { return (d.snippets as Record<string, any>)[name] ?? ""; }
 
 	// Filter broker members to the ones strategies typically use (exclude streamPrices, name)
 	const brokerMethods = (iface("Broker")?.members ?? []).filter(

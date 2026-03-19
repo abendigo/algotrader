@@ -3,6 +3,7 @@
 	import { page } from "$app/stores";
 
 	let { data } = $props();
+	// svelte-ignore state_referenced_locally
 	let source = $state(data.source);
 	let saving = $state(false);
 	let dirty = $state(false);

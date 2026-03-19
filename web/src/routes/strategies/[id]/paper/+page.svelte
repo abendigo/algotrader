@@ -305,8 +305,8 @@
 	{/if}
 
 	{#if deleteTarget}
-		<div class="modal-backdrop" onclick={() => deleteTarget = null}>
-			<div class="modal" onclick={(e) => e.stopPropagation()}>
+		<div class="modal-backdrop" role="none" onclick={() => deleteTarget = null}>
+			<div class="modal" role="none" onclick={(e) => e.stopPropagation()}>
 				<h3>Delete session?</h3>
 				<p class="modal-warning">This will remove the session record. Trade data in trades.jsonl is preserved.</p>
 				<div class="modal-actions">

@@ -7,6 +7,7 @@
 
 
 	// Auto-refresh services every 5 seconds
+	// svelte-ignore state_referenced_locally
 	let servicesData = $state(data.services);
 	$effect(() => {
 		servicesData = data.services;
@@ -216,12 +217,6 @@
 		padding-bottom: 6px;
 		margin: 28px 0 12px;
 	}
-	h3 { margin: 16px 0 8px; }
-	.broker-name {
-		font-size: 0.95em;
-		color: #58a6ff;
-		text-transform: capitalize;
-	}
 	.success {
 		background: #0d2818;
 		color: #3fb950;
@@ -299,8 +294,6 @@
 		color: #8b949e;
 		border-color: #30363d;
 	}
-	.data-table { margin-bottom: 4px; }
-	.no-data td { color: #484f58; }
 	.empty { color: #8b949e; font-size: 0.9em; font-style: italic; }
 	.stream-status {
 		font-size: 0.8em;

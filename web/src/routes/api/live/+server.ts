@@ -58,7 +58,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
         strategyName: (state.strategyName as string) ?? (sf.status === "starting" ? "Starting..." : sf.strategy),
         sessionId: sf.sessionId,
         sessionStatus: sf.status,
-        sessionError: sf.error,
+        sessionError: sf.lastError,
       });
     }
 
