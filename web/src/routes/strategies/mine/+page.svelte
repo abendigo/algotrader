@@ -333,7 +333,7 @@
 				{#each data.userStrategies as strategy}
 					<tr>
 						<td class="name">{strategy.name}</td>
-						<td class="mono">{strategy.id}.ts</td>
+						<td class="mono">{strategy.id}.ts <span class="file-date">{strategy.modifiedAt ? new Date(strategy.modifiedAt).toLocaleDateString() : ""}</span></td>
 						<td class="actions">
 							<a href="/strategies/edit/{strategy.id}" class="btn-action">Edit</a>
 							<button class="btn-action" onclick={() => { forkTarget = strategy.id; forkName = nextForkName(strategy.id); }}>Fork</button>
@@ -646,6 +646,7 @@ tttttt{/if}
 	tr:hover td { background: #1c2128; }
 	.name { font-weight: 600; }
 	.mono { font-family: monospace; font-size: 0.85em; color: #8b949e; }
+	.file-date { color: #484f58; font-size: 0.9em; margin-left: 8px; }
 	.source { color: #8b949e; font-size: 0.85em; }
 	.source.private { color: #58a6ff; }
 	.actions {

@@ -1,6 +1,9 @@
 import { listAllStrategies, hasSharedOrBuiltin } from "$lib/server/strategies.js";
 import { getApiKey, discoverAccounts } from "$lib/server/auth.js";
 import { getDataSummary } from "$lib/server/data.js";
+import { statSync } from "fs";
+import { join } from "path";
+import { DATA_DIR } from "$lib/server/paths.js";
 
 export async function load({ locals }) {
   const userId = locals.user?.id ?? "";
@@ -28,10 +31,15 @@ export async function load({ locals }) {
 
   // Check filesystem directly — listStrategies deduplicates, so shared/builtin
   // entries are hidden when a user version exists
-  const userStrategiesWithMeta = userStrategies.map((s) => ({
-    ...s,
-    revertable: hasSharedOrBuiltin(s.id),
-  }));
+  const userDir = join(DATA_DIR, "users", userId, "strategies");
+  const userStrategiesWithMeta = userStrategies.map((s) => {
+    let modifiedAt: string | null = null;
+    try {
+      const stat = statSync(join(userDir, `${s.id}.ts`));
+      modifiedAt = stat.mtime.toISOString();
+    } catch { /* ignore */ }
+    return { ...s, revertable: hasSharedOrBuiltin(s.id), modifiedAt };
+  });
 
   return {
     strategies: allStrategies,
