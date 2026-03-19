@@ -98,7 +98,11 @@ export async function startContainer(userId: string, userEmail: string): Promise
   const { status: createStatus, data: createData } = await dockerFetch("POST", "/containers/create?name=" + name, {
     Image: LIVE_IMAGE,
     Cmd: ["npx", "tsx", "src/live/service.ts", `--user=${userEmail}`, `--port=${LIVE_PORT}`],
-    Env: [`DOCKER_MODE=true`],
+    Env: [
+      "DOCKER_MODE=true",
+      "DATA_DIR=/app/data",
+      "PROJECT_ROOT=/app",
+    ],
     ExposedPorts: { [`${LIVE_PORT}/tcp`]: {} },
     HostConfig: {
       Binds: [
@@ -117,13 +121,17 @@ export async function startContainer(userId: string, userEmail: string): Promise
   });
 
   if (createStatus !== 201) {
-    console.error("[Docker] Failed to create container:", createData);
+    console.error("[Docker] Failed to create container:", JSON.stringify(createData));
     return false;
   }
 
   // Start the container
-  const { status: startStatus } = await dockerFetch("POST", `/containers/${name}/start`);
-  return startStatus === 204;
+  const { status: startStatus, data: startData } = await dockerFetch("POST", `/containers/${name}/start`);
+  if (startStatus !== 204) {
+    console.error("[Docker] Failed to start container:", startStatus, JSON.stringify(startData));
+    return false;
+  }
+  return true;
 }
 
 /**
