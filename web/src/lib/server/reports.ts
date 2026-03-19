@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, readdirSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
 
 import { DATA_DIR } from './paths.js';
@@ -175,4 +175,24 @@ export function getReportCsv(userId: string, filename: string): string | null {
 	const path = join(userReportsDir(userId), `${filename}.csv`);
 	if (!existsSync(path)) return null;
 	return readFileSync(path, 'utf-8');
+}
+
+const SAFE_FILENAME = /^[a-z0-9][a-z0-9_-]*$/;
+
+export function deleteReport(userId: string, filename: string): boolean {
+	if (!SAFE_FILENAME.test(filename)) return false;
+
+	const btDir = userBacktestsDir(userId);
+	const reportsDir = userReportsDir(userId);
+
+	let deleted = false;
+	for (const ext of ['.json', '.html', '.csv']) {
+		const dir = ext === '.json' ? btDir : reportsDir;
+		const path = join(dir, `${filename}${ext}`);
+		if (existsSync(path)) {
+			unlinkSync(path);
+			deleted = true;
+		}
+	}
+	return deleted;
 }

@@ -1,6 +1,18 @@
 <script lang="ts">
+	import { invalidateAll } from "$app/navigation";
+
 	let { data } = $props();
 	let expanded = $state<Set<string>>(new Set());
+	let deleteTarget = $state<string | null>(null);
+
+	async function deleteReport() {
+		if (!deleteTarget) return;
+		const res = await fetch(`/backtests/${deleteTarget}`, { method: "DELETE" });
+		if (res.ok) {
+			deleteTarget = null;
+			await invalidateAll();
+		}
+	}
 
 	function toggle(filename: string) {
 		if (expanded.has(filename)) {
@@ -72,6 +84,8 @@
 					<td class="report-links" onclick={(e) => e.stopPropagation()}>
 						<a href="/backtests/{report.filename}" target="_blank">HTML</a>
 						<a href="/backtests/{report.filename}/csv">CSV</a>
+						<button class="btn-link" disabled title="Coming soon">Share</button>
+						<button class="btn-link btn-delete" onclick={() => deleteTarget = report.filename}>Delete</button>
 					</td>
 				</tr>
 				{#if isOpen}
@@ -126,6 +140,19 @@
 	</table>
 {/if}
 
+{#if deleteTarget}
+	<div class="modal-backdrop" onclick={() => deleteTarget = null}>
+		<div class="modal" onclick={(e) => e.stopPropagation()}>
+			<h3>Delete backtest result?</h3>
+			<p class="modal-warning">This will remove the JSON, HTML, and CSV files. This cannot be undone.</p>
+			<div class="modal-actions">
+				<button class="btn-action" onclick={() => deleteTarget = null}>Cancel</button>
+				<button class="btn-primary btn-danger" onclick={deleteReport}>Delete</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <style>
 	h1 {
 		font-size: 1.4em;
@@ -159,6 +186,20 @@
 	.muted { color: #8b949e; }
 	.report-links { display: flex; gap: 8px; }
 	.report-links a { font-size: 0.85em; color: #58a6ff; }
+	.btn-link { background: none; border: none; color: #58a6ff; cursor: pointer; font-size: 0.85em; padding: 0; }
+	.btn-link:hover { text-decoration: underline; }
+	.btn-link:disabled { color: #484f58; cursor: not-allowed; text-decoration: none; }
+	.btn-delete { color: #f85149; }
+	.btn-action { padding: 4px 10px; background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; font-size: 0.82em; cursor: pointer; }
+	.btn-action:hover { background: #30363d; }
+	.btn-primary { padding: 6px 16px; background: #238636; color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 0.85em; }
+	.btn-primary.btn-danger { background: #da3633; }
+	.btn-primary.btn-danger:hover { background: #f85149; }
+	.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
+	.modal { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 24px; min-width: 340px; max-width: 440px; }
+	.modal h3 { margin: 0 0 12px; font-size: 1em; }
+	.modal-warning { color: #8b949e; font-size: 0.85em; margin: 8px 0; }
+	.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 .detail-row td {
 		padding: 0;
 		border-bottom: 2px solid #21262d;
