@@ -147,11 +147,13 @@
     <div class="active-jobs">
       <h3>Active Collections</h3>
       {#each collectJobs.filter((j) => j.progress.status === "running") as job}
+        {@const instCount = job.instruments?.length ?? job.progress.totalInstruments}
         <div class="job-row">
           <span class="job-gran">{job.granularity}</span>
           <span class="job-dir">{job.direction}</span>
-          <span class="job-inst">{job.progress.currentInstrument ?? "Starting..."}</span>
-          <span class="job-progress">{job.progress.completedInstruments}/{job.progress.totalInstruments} instruments — {job.progress.fetchedDayFiles}/{job.progress.totalDayFiles} files</span>
+          <span class="job-scope">{instCount === 1 ? job.instruments?.[0] ?? "1 instrument" : `${instCount} instruments`}</span>
+          <span class="job-current">{job.progress.currentInstrument ?? "Starting..."}</span>
+          <span class="job-progress">{job.progress.completedInstruments}/{instCount} done — {job.progress.fetchedDayFiles} files</span>
           {#if job.progress.errors > 0}
             <span class="job-errors">{job.progress.errors} errors</span>
           {/if}
@@ -306,7 +308,8 @@
   .job-row:last-child { border-bottom: none; }
   .job-gran { font-weight: 700; font-family: monospace; min-width: 30px; }
   .job-dir { color: #8b949e; min-width: 60px; }
-  .job-inst { color: #d29922; min-width: 80px; }
+  .job-scope { color: #c9d1d9; font-weight: 600; min-width: 100px; }
+  .job-current { color: #d29922; min-width: 80px; }
   .job-progress { color: #8b949e; }
   .job-errors { color: #f85149; }
   .data-page h1 {
