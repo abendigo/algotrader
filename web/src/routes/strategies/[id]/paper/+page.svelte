@@ -19,6 +19,13 @@
 	let starting = $state(false);
 	let liveAccountId = $state("");
 	let deleteTarget = $state<string | null>(null);
+	let expanded = $state<Set<string>>(new Set());
+
+	function toggleSession(sessionId: string) {
+		if (expanded.has(sessionId)) expanded.delete(sessionId);
+		else expanded.add(sessionId);
+		expanded = new Set(expanded);
+	}
 	let liveConfig = $state<Record<string, unknown>>({});
 
 	function getFields(): [string, ConfigFieldDef][] {
@@ -212,6 +219,7 @@
 			<table class="past-table">
 				<thead>
 					<tr>
+						<th></th>
 						<th>Status</th>
 						<th>Started</th>
 						<th>Duration</th>
@@ -227,7 +235,9 @@
 						{@const last = new Date(ps.lastHeartbeat)}
 						{@const durMs = last.getTime() - started.getTime()}
 						{@const durMin = Math.round(durMs / 60000)}
-						<tr>
+						{@const isOpen = expanded.has(ps.sessionId)}
+						<tr class="summary-row" onclick={() => toggleSession(ps.sessionId)}>
+							<td class="chevron">{isOpen ? "▾" : "▸"}</td>
 							<td>
 								<span class="status-badge" class:running={ps.status === "running"} class:stopped={ps.status === "stopped"} class:error={ps.status === "error"}>
 									{ps.status}
@@ -238,7 +248,7 @@
 							<td>{ps.trades}</td>
 							<td>{ps.winners}W / {ps.losers}L</td>
 							<td class:pos={ps.totalPnl > 0} class:neg={ps.totalPnl < 0}>{ps.totalPnl >= 0 ? "+" : ""}{ps.totalPnl.toFixed(2)}</td>
-							<td class="report-links">
+							<td class="report-links" onclick={(e) => e.stopPropagation()}>
 								<button class="btn-link" onclick={() => rerunSession(ps)}>Rerun</button>
 								{#if ps.trades > 0}
 									<a href="/api/live/report?session={ps.sessionId}&format=html" target="_blank">HTML</a>
@@ -248,6 +258,43 @@
 								<button class="btn-link btn-delete" onclick={() => deleteTarget = ps.sessionId}>Delete</button>
 							</td>
 						</tr>
+						{#if isOpen}
+							<tr class="detail-row">
+								<td colspan="8">
+									<div class="detail-panel">
+										<div class="detail-section">
+											<h4>Session</h4>
+											<div class="detail-grid">
+												<span class="dl">Account</span><span class="dv">{ps.accountId}</span>
+												<span class="dl">Started</span><span class="dv">{started.toISOString().slice(0, 19).replace("T", " ")}</span>
+												<span class="dl">Ended</span><span class="dv">{last.toISOString().slice(0, 19).replace("T", " ")}</span>
+												<span class="dl">Duration</span><span class="dv">{durMin < 60 ? `${durMin}m` : `${Math.floor(durMin / 60)}h ${durMin % 60}m`}</span>
+											</div>
+										</div>
+										{#if ps.config && Object.keys(ps.config).length > 0}
+											<div class="detail-section">
+												<h4>Parameters</h4>
+												<div class="detail-grid">
+													{#each Object.entries(ps.config).filter(([, v]) => v != null && v !== 0 && v !== "") as [key, val]}
+														<span class="dl">{key}</span>
+														<span class="dv">{Array.isArray(val) ? val.join(", ") : val}</span>
+													{/each}
+												</div>
+											</div>
+										{/if}
+										<div class="detail-section">
+											<h4>Results</h4>
+											<div class="detail-grid">
+												<span class="dl">Trades</span><span class="dv">{ps.trades}</span>
+												<span class="dl">Winners</span><span class="dv pos">{ps.winners}</span>
+												<span class="dl">Losers</span><span class="dv neg">{ps.losers}</span>
+												<span class="dl">P&L</span><span class="dv" class:pos={ps.totalPnl > 0} class:neg={ps.totalPnl < 0}>{ps.totalPnl >= 0 ? "+" : ""}{ps.totalPnl.toFixed(2)}</span>
+											</div>
+										</div>
+									</div>
+								</td>
+							</tr>
+						{/if}
 					{/each}
 				</tbody>
 			</table>
@@ -304,6 +351,15 @@
 	.status-badge.error { background: #5d1a1a; color: #f85149; }
 	.pos { color: #3fb950; }
 	.neg { color: #f85149; }
+	.summary-row { cursor: pointer; }
+	.summary-row:hover td { background: #1c2128; }
+	.chevron { color: #8b949e; width: 16px; font-size: 0.8em; }
+	.detail-row td { padding: 0; border-bottom: 2px solid #21262d; }
+	.detail-panel { display: flex; gap: 32px; padding: 12px 16px 12px 32px; background: #161b22; }
+	.detail-section h4 { font-size: 0.8em; color: #8b949e; margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+	.detail-grid { display: grid; grid-template-columns: auto auto; gap: 2px 12px; font-size: 0.9em; }
+	.dl { color: #8b949e; }
+	.dv { color: #c9d1d9; }
 	.report-links { display: flex; gap: 8px; }
 	.report-links a { font-size: 0.85em; color: #58a6ff; }
 	.btn-link { background: none; border: none; color: #58a6ff; cursor: pointer; font-size: 0.85em; padding: 0; }
