@@ -61,7 +61,7 @@ export function getSystemApiKey(): string | null {
 
 export function setSystemApiKey(apiKey: string): void {
   const config = loadConfig();
-  config.oandaApiKey = encrypt(apiKey);
+  config.oandaApiKey = encrypt(apiKey.trim());
   saveConfig(config);
 }
 
