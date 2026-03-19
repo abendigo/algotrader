@@ -6,13 +6,12 @@ export async function load({ locals }) {
   const userId = locals.user?.id ?? "";
   const all = listAllStrategies(userId);
   const userIds = new Set(all.filter((s) => s.source === "user").map((s) => s.id));
-  const shared = all.filter((s) => s.source === "shared" || s.source === "builtin");
+  const shared = all.filter((s) => s.source === "shared");
+  const builtin = all.filter((s) => s.source === "builtin");
 
   return {
-    strategies: shared.map((s) => ({
-      ...s,
-      alreadyCopied: userIds.has(s.id),
-    })),
+    shared: shared.map((s) => ({ ...s, alreadyCopied: userIds.has(s.id) })),
+    builtin: builtin.map((s) => ({ ...s, alreadyCopied: userIds.has(s.id) })),
   };
 }
 

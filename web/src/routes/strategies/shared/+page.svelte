@@ -5,6 +5,29 @@
 	let { data, form } = $props();
 </script>
 
+{#snippet strategyCard(strategy: any)}
+	<div class="strategy-card">
+		<div class="card-header">
+			<h3>{strategy.name}</h3>
+		</div>
+
+		{#if strategy.description}
+			<p class="description">{strategy.description}</p>
+		{/if}
+
+		<div class="card-actions">
+			{#if strategy.alreadyCopied}
+				<span class="already-copied">Already in your collection</span>
+			{:else}
+				<form method="POST" action="?/copy" use:enhance={() => { return async ({ update }) => { await update(); await invalidateAll(); }; }}>
+					<input type="hidden" name="strategyId" value={strategy.id} />
+					<button type="submit" class="btn-copy">Copy to My Strategies</button>
+				</form>
+			{/if}
+		</div>
+	</div>
+{/snippet}
+
 <div class="strategies-page">
 	<div class="page-header">
 		<h1>Shared Strategies</h1>
@@ -21,50 +44,29 @@
 		<div class="error">{form.error}</div>
 	{/if}
 
-	<p class="intro">Example strategies from the community. Copy them to your collection, customize the parameters, and backtest.</p>
+	{#if data.builtin.length > 0}
+		<h2 class="section-title">Built-in</h2>
+		<p class="intro">Strategies included with the platform. Copy to customize.</p>
+		<div class="strategy-grid">
+			{#each data.builtin as strategy}
+				{@render strategyCard(strategy)}
+			{/each}
+		</div>
+	{/if}
 
-	<div class="strategy-grid">
-		{#each data.strategies as strategy}
-			<div class="strategy-card">
-				<div class="card-header">
-					<h3>{strategy.name}</h3>
-					<div class="badges">
-						<span class="badge category">{strategy.category}</span>
-						<span class="badge experimental">{strategy.badge}</span>
-					</div>
-				</div>
+	{#if data.shared.length > 0}
+		<h2 class="section-title">Community</h2>
+		<p class="intro">Strategies shared by other users. Copy them to your collection, customize, and backtest.</p>
+		<div class="strategy-grid">
+			{#each data.shared as strategy}
+				{@render strategyCard(strategy)}
+			{/each}
+		</div>
+	{/if}
 
-				<p class="description">{strategy.description}</p>
-
-				<div class="meta">
-					<div class="meta-row">
-						<span class="label">Instruments</span>
-						<span>{strategy.instruments}</span>
-					</div>
-					<div class="meta-row">
-						<span class="label">Timeframe</span>
-						<span>{strategy.timeframe}</span>
-					</div>
-				</div>
-
-				<div class="backtest-note">
-					<span class="note-label">Backtest Results</span>
-					<p>{strategy.backtestNote}</p>
-				</div>
-
-				<div class="card-actions">
-					{#if strategy.alreadyCopied}
-						<span class="already-copied">Already in your collection</span>
-					{:else}
-						<form method="POST" action="?/copy" use:enhance={() => { return async ({ update }) => { await update(); await invalidateAll(); }; }}>
-							<input type="hidden" name="strategyId" value={strategy.id} />
-							<button type="submit" class="btn-copy">Copy to My Strategies</button>
-						</form>
-					{/if}
-				</div>
-			</div>
-		{/each}
-	</div>
+	{#if data.builtin.length === 0 && data.shared.length === 0}
+		<p class="intro">No shared strategies available yet.</p>
+	{/if}
 </div>
 
 <style>
@@ -99,7 +101,14 @@
 	.intro {
 		color: #8b949e;
 		font-size: 0.9em;
-		margin-bottom: 20px;
+		margin-bottom: 16px;
+	}
+	.section-title {
+		font-size: 1.1em;
+		color: #8b949e;
+		border-bottom: 1px solid #21262d;
+		padding-bottom: 6px;
+		margin: 24px 0 8px;
 	}
 	.success {
 		background: #0d2818;

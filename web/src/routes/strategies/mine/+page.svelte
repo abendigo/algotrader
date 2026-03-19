@@ -112,7 +112,7 @@
 
 	// Strategies are already merged by the server with source field
 	const allStrategies = $derived(
-		data.strategies.map((s: any) => ({ id: s.id, name: s.name, source: s.source as "user" | "shared", configFields: (s.configFields ?? {}) as ConfigFields }))
+		data.strategies.map((s: any) => ({ id: s.id, name: s.name, source: s.source as "user" | "shared" | "builtin", configFields: (s.configFields ?? {}) as ConfigFields }))
 	);
 
 	const selectedStrategy = $derived(allStrategies.find((s) => s.id === backtestStrategy));
@@ -270,13 +270,20 @@
 							{/each}
 						</optgroup>
 					{/if}
-					{#if allStrategies.filter(s => s.source !== "user").length > 0}
-						<optgroup label="Shared">
-							{#each allStrategies.filter(s => s.source !== "user") as s}
-								<option value={s.id}>{s.name}</option>
-							{/each}
-						</optgroup>
-					{/if}
+ttttt{#if allStrategies.filter(s => s.source === "builtin").length > 0}
+tttttt<optgroup label="Built-in">
+ttttttt{#each allStrategies.filter(s => s.source === "builtin") as s}
+tttttttt<option value={s.id}>{s.name}</option>
+ttttttt{/each}
+tttttt</optgroup>
+ttttt{/if}
+ttttt{#if allStrategies.filter(s => s.source === "shared").length > 0}
+tttttt<optgroup label="Community">
+ttttttt{#each allStrategies.filter(s => s.source === "shared") as s}
+tttttttt<option value={s.id}>{s.name}</option>
+ttttttt{/each}
+tttttt</optgroup>
+ttttt{/if}
 				</select>
 				<select bind:value={backtestGranularity}>
 					{#each granularities as g}
@@ -394,13 +401,20 @@
 								{/each}
 							</optgroup>
 						{/if}
-						{#if allStrategies.filter(s => s.source !== "user").length > 0}
-							<optgroup label="Shared">
-								{#each allStrategies.filter(s => s.source !== "user") as s}
-									<option value={s.id}>{s.name}</option>
-								{/each}
-							</optgroup>
-						{/if}
+tttttt{#if allStrategies.filter(s => s.source === "builtin").length > 0}
+ttttttt<optgroup label="Built-in">
+tttttttt{#each allStrategies.filter(s => s.source === "builtin") as s}
+ttttttttt<option value={s.id}>{s.name}</option>
+tttttttt{/each}
+ttttttt</optgroup>
+tttttt{/if}
+tttttt{#if allStrategies.filter(s => s.source === "shared").length > 0}
+ttttttt<optgroup label="Community">
+tttttttt{#each allStrategies.filter(s => s.source === "shared") as s}
+ttttttttt<option value={s.id}>{s.name}</option>
+tttttttt{/each}
+ttttttt</optgroup>
+tttttt{/if}
 					</select>
 					<select bind:value={liveAccountId}>
 						<option value="">Select account...</option>
