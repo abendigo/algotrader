@@ -153,6 +153,23 @@
 		}
 	}
 
+	async function shareStrategy(id: string) {
+		actionMessage = "";
+		actionError = "";
+
+		const res = await fetch(`/api/strategies/${id}`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ action: "share" }),
+		});
+		const result = await res.json();
+		if (res.ok) {
+			actionMessage = `Shared ${id}.ts to community`;
+		} else {
+			actionError = result.error;
+		}
+	}
+
 	async function revertStrategy() {
 		if (!revertTarget) return;
 		actionMessage = "";
@@ -310,6 +327,9 @@
 						<td class="actions">
 							<a href="/strategies/edit/{strategy.id}" class="btn-action">Edit</a>
 							<button class="btn-action" onclick={() => { forkTarget = strategy.id; forkName = strategy.id + "-v2"; }}>Fork</button>
+							{#if data.isAdmin}
+								<button class="btn-action btn-share" onclick={() => shareStrategy(strategy.id)}>Share</button>
+							{/if}
 							{#if strategy.revertable}
 								<button class="btn-action btn-warn" onclick={() => { revertTarget = strategy.id; }}>Revert</button>
 							{/if}
@@ -634,6 +654,8 @@ tttttt{/if}
 		cursor: pointer;
 	}
 	.btn-action:hover { background: #30363d; }
+	.btn-share { color: #a371f7; border-color: #a371f7; }
+	.btn-share:hover { background: #2a1a4a; }
 	.btn-warn { color: #d29922; border-color: #d29922; }
 	.btn-warn:hover { background: #2a2000; }
 	.btn-danger { color: #f85149; border-color: #f85149; }

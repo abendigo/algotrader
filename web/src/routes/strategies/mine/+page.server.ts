@@ -38,5 +38,6 @@ export async function load({ locals }) {
     userStrategies: userStrategiesWithMeta,
     accounts,
     availableGranularities,
+    isAdmin: locals.user?.role === "admin",
   };
 }

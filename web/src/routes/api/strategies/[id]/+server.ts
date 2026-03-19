@@ -78,6 +78,19 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		return json({ success: true, id: newId });
 	}
 
+	if (action === "share") {
+		if (locals.user.role !== "admin") return json({ error: "Admin only" }, { status: 403 });
+
+		const sourceFile = join(userDir, `${id}.ts`);
+		if (!existsSync(sourceFile)) return json({ error: "Strategy not found" }, { status: 404 });
+
+		const sharedDir = join(DATA_DIR, "shared/strategies");
+		if (!existsSync(sharedDir)) mkdirSync(sharedDir, { recursive: true });
+
+		copyFileSync(sourceFile, join(sharedDir, `${id}.ts`));
+		return json({ success: true });
+	}
+
 	if (action === "revert") {
 		const sharedFile = join(DATA_DIR, "shared/strategies", `${id}.ts`);
 		const builtinFile = join(PROJECT_ROOT, "src/strategies", `${id}.ts`);
