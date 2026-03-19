@@ -70,6 +70,9 @@ If backtests start competing for CPU with the web server, consider these upgrade
   - Conversation persistence
   - Budget/rate-limit backtests per user (server compute cost)
 
+## UI/UX
+- [ ] Light mode theme — extract all hardcoded colors into CSS custom properties, define light/dark theme sets, add toggle in nav. Touches every `.svelte` file.
+
 ## Code Quality
 - [ ] Convert all tabs to spaces (web/ uses tabs, src/ uses spaces — standardize on spaces)
 
