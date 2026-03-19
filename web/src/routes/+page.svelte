@@ -47,16 +47,16 @@
 	}
 	h1 {
 		font-size: 2.8em;
-		color: #58a6ff;
+		color: var(--accent);
 		margin-bottom: 12px;
 	}
 	.tagline {
 		font-size: 1.2em;
-		color: #c9d1d9;
+		color: var(--text-primary);
 		margin-bottom: 16px;
 	}
 	.description {
-		color: #8b949e;
+		color: var(--text-secondary);
 		font-size: 0.95em;
 		max-width: 500px;
 		margin: 0 auto 32px;
@@ -75,20 +75,20 @@
 		text-decoration: none;
 	}
 	.btn.primary {
-		background: #238636;
+		background: var(--btn-primary-bg);
 		color: #fff;
 	}
 	.btn.primary:hover {
-		background: #2ea043;
+		background: var(--btn-primary-hover);
 		text-decoration: none;
 	}
 	.btn.secondary {
-		background: #21262d;
-		color: #c9d1d9;
-		border: 1px solid #30363d;
+		background: var(--bg-tertiary);
+		color: var(--text-primary);
+		border: 1px solid var(--border-light);
 	}
 	.btn.secondary:hover {
-		background: #30363d;
+		background: var(--border-light);
 		text-decoration: none;
 	}
 	.features {
@@ -98,18 +98,18 @@
 		padding-bottom: 60px;
 	}
 	.feature {
-		background: #161b22;
-		border: 1px solid #21262d;
+		background: var(--bg-secondary);
+		border: 1px solid var(--border);
 		border-radius: 8px;
 		padding: 20px;
 	}
 	.feature h3 {
-		color: #c9d1d9;
+		color: var(--text-primary);
 		font-size: 1em;
 		margin-bottom: 8px;
 	}
 	.feature p {
-		color: #8b949e;
+		color: var(--text-secondary);
 		font-size: 0.85em;
 		line-height: 1.5;
 	}

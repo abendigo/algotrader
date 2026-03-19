@@ -166,53 +166,53 @@
 	th {
 		text-align: left;
 		padding: 6px 10px;
-		color: #8b949e;
-		border-bottom: 2px solid #21262d;
+		color: var(--text-secondary);
+		border-bottom: 2px solid var(--border);
 		white-space: nowrap;
 	}
 	td {
 		padding: 6px 10px;
-		border-bottom: 1px solid #21262d;
+		border-bottom: 1px solid var(--border);
 		white-space: nowrap;
 	}
 	.summary-row { cursor: pointer; }
-	.summary-row:hover td { background: #1c2128; }
-	.chevron { color: #8b949e; width: 16px; font-size: 0.8em; }
+	.summary-row:hover td { background: var(--bg-hover); }
+	.chevron { color: var(--text-secondary); width: 16px; font-size: 0.8em; }
 	.name { font-weight: 600; }
-	.preset { color: #8b949e; }
-	.when { color: #8b949e; font-size: 0.9em; }
-	.pos { color: #3fb950; }
-	.neg { color: #f85149; }
-	.muted { color: #8b949e; }
+	.preset { color: var(--text-secondary); }
+	.when { color: var(--text-secondary); font-size: 0.9em; }
+	.pos { color: var(--success); }
+	.neg { color: var(--danger); }
+	.muted { color: var(--text-secondary); }
 	.report-links { display: flex; gap: 8px; }
-	.report-links a { font-size: 0.85em; color: #58a6ff; }
-	.btn-link { background: none; border: none; color: #58a6ff; cursor: pointer; font-size: 0.85em; padding: 0; }
+	.report-links a { font-size: 0.85em; color: var(--accent); }
+	.btn-link { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.85em; padding: 0; }
 	.btn-link:hover { text-decoration: underline; }
-	.btn-link:disabled { color: #484f58; cursor: not-allowed; text-decoration: none; }
-	.btn-delete { color: #f85149; }
-	.btn-action { padding: 4px 10px; background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; font-size: 0.82em; cursor: pointer; }
-	.btn-action:hover { background: #30363d; }
-	.btn-primary { padding: 6px 16px; background: #238636; color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 0.85em; }
-	.btn-primary.btn-danger { background: #da3633; }
-	.btn-primary.btn-danger:hover { background: #f85149; }
-	.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
-	.modal { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 24px; min-width: 340px; max-width: 440px; }
+	.btn-link:disabled { color: var(--text-muted); cursor: not-allowed; text-decoration: none; }
+	.btn-delete { color: var(--danger); }
+	.btn-action { padding: 4px 10px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-light); border-radius: 4px; font-size: 0.82em; cursor: pointer; }
+	.btn-action:hover { background: var(--border-light); }
+	.btn-primary { padding: 6px 16px; background: var(--btn-primary-bg); color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 0.85em; }
+	.btn-primary.btn-danger { background: var(--danger); }
+	.btn-primary.btn-danger:hover { background: var(--danger); }
+	.modal-backdrop { position: fixed; inset: 0; background: var(--modal-backdrop); display: flex; align-items: center; justify-content: center; z-index: 100; }
+	.modal { background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: 8px; padding: 24px; min-width: 340px; max-width: 440px; }
 	.modal h3 { margin: 0 0 12px; font-size: 1em; }
-	.modal-warning { color: #8b949e; font-size: 0.85em; margin: 8px 0; }
+	.modal-warning { color: var(--text-secondary); font-size: 0.85em; margin: 8px 0; }
 	.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 .detail-row td {
 		padding: 0;
-		border-bottom: 2px solid #21262d;
+		border-bottom: 2px solid var(--border);
 	}
 	.detail-panel {
 		display: flex;
 		gap: 32px;
 		padding: 12px 16px 12px 32px;
-		background: #161b22;
+		background: var(--bg-secondary);
 	}
 	.detail-section h4 {
 		font-size: 0.8em;
-		color: #8b949e;
+		color: var(--text-secondary);
 		margin: 0 0 6px;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
@@ -223,6 +223,6 @@
 		gap: 2px 12px;
 		font-size: 0.9em;
 	}
-	.dl { color: #8b949e; }
-	.dv { color: #c9d1d9; }
+	.dl { color: var(--text-secondary); }
+	.dv { color: var(--text-primary); }
 </style>

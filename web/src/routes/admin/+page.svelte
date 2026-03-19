@@ -212,22 +212,22 @@
 	}
 	h2 {
 		font-size: 1.1em;
-		color: #8b949e;
-		border-bottom: 1px solid #21262d;
+		color: var(--text-secondary);
+		border-bottom: 1px solid var(--border);
 		padding-bottom: 6px;
 		margin: 28px 0 12px;
 	}
 	.success {
-		background: #0d2818;
-		color: #3fb950;
+		background: var(--success-bg);
+		color: var(--success);
 		padding: 8px 12px;
 		border-radius: 4px;
 		font-size: 0.85em;
 		margin-bottom: 16px;
 	}
 	.error {
-		background: #5d1a1a;
-		color: #f85149;
+		background: var(--danger-bg);
+		color: var(--danger);
 		padding: 8px 12px;
 		border-radius: 4px;
 		font-size: 0.85em;
@@ -242,14 +242,14 @@
 	th {
 		text-align: left;
 		padding: 8px 10px;
-		color: #8b949e;
-		border-bottom: 2px solid #21262d;
+		color: var(--text-secondary);
+		border-bottom: 2px solid var(--border);
 	}
 	td {
 		padding: 8px 10px;
-		border-bottom: 1px solid #21262d;
+		border-bottom: 1px solid var(--border);
 	}
-	tr:hover td { background: #1c2128; }
+	tr:hover td { background: var(--bg-hover); }
 	.badge {
 		display: inline-block;
 		padding: 1px 6px;
@@ -257,15 +257,15 @@
 		font-size: 0.8em;
 		font-weight: 600;
 	}
-	.badge.admin { background: #0d419d; color: #58a6ff; }
-	.badge.user-badge { background: #21262d; color: #8b949e; }
-	.status-set { color: #3fb950; font-size: 0.85em; }
-	.status-unset { color: #8b949e; font-size: 0.85em; }
-	.date { color: #8b949e; font-size: 0.85em; }
+	.badge.admin { background: var(--badge-buy-bg); color: var(--accent); }
+	.badge.user-badge { background: var(--bg-tertiary); color: var(--text-secondary); }
+	.status-set { color: var(--success); font-size: 0.85em; }
+	.status-unset { color: var(--text-secondary); font-size: 0.85em; }
+	.date { color: var(--text-secondary); font-size: 0.85em; }
 	.mono { font-family: monospace; font-size: 0.85em; }
 	.disk-info {
-		background: #161b22;
-		border: 1px solid #21262d;
+		background: var(--bg-secondary);
+		border: 1px solid var(--border);
 		border-radius: 6px;
 		padding: 12px 16px;
 		margin-bottom: 12px;
@@ -276,7 +276,7 @@
 		padding: 4px 0;
 		font-size: 0.9em;
 	}
-	.stat-row .label { color: #8b949e; }
+	.stat-row .label { color: var(--text-secondary); }
 	.btn-sm {
 		padding: 3px 8px;
 		border-radius: 3px;
@@ -286,31 +286,31 @@
 	}
 	.btn-promote {
 		background: transparent;
-		color: #58a6ff;
-		border-color: #58a6ff;
+		color: var(--accent);
+		border-color: var(--accent);
 	}
 	.btn-demote {
 		background: transparent;
-		color: #8b949e;
-		border-color: #30363d;
+		color: var(--text-secondary);
+		border-color: var(--border-light);
 	}
-	.empty { color: #8b949e; font-size: 0.9em; font-style: italic; }
+	.empty { color: var(--text-secondary); font-size: 0.9em; font-style: italic; }
 	.stream-status {
 		font-size: 0.8em;
 		font-weight: 600;
 		padding: 1px 6px;
 		border-radius: 3px;
 	}
-	.stream-status.connected { background: #0d2818; color: #3fb950; }
-	.stream-status.reconnecting { background: #3d2e00; color: #d29922; }
-	.stream-status.disconnected { background: #5d1a1a; color: #f85149; }
+	.stream-status.connected { background: var(--success-bg); color: var(--success); }
+	.stream-status.reconnecting { background: var(--warning-bg); color: var(--warning); }
+	.stream-status.disconnected { background: var(--danger-bg); color: var(--danger); }
 	.btn-stop {
 		background: transparent;
-		color: #f85149;
-		border-color: #f85149;
+		color: var(--danger);
+		border-color: var(--danger);
 	}
 	.section-desc {
-		color: #8b949e;
+		color: var(--text-secondary);
 		font-size: 0.85em;
 		margin: 0 0 8px;
 	}
@@ -323,12 +323,12 @@
 	.input-key {
 		flex: 1;
 		padding: 6px 10px;
-		background: #0d1117;
-		border: 1px solid #30363d;
+		background: var(--input-bg);
+		border: 1px solid var(--input-border);
 		border-radius: 4px;
-		color: #c9d1d9;
+		color: var(--text-primary);
 		font-size: 0.85em;
 		font-family: monospace;
 	}
-	.input-key:focus { outline: none; border-color: #58a6ff; }
+	.input-key:focus { outline: none; border-color: var(--accent); }
 </style>

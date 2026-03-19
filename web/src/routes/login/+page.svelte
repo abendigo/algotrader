@@ -37,8 +37,8 @@
 		padding-top: 60px;
 	}
 	.auth-card {
-		background: #161b22;
-		border: 1px solid #21262d;
+		background: var(--bg-secondary);
+		border: 1px solid var(--border);
 		border-radius: 8px;
 		padding: 32px;
 		width: 100%;
@@ -50,8 +50,8 @@
 		text-align: center;
 	}
 	.error {
-		background: #5d1a1a;
-		color: #f85149;
+		background: var(--danger-bg);
+		color: var(--danger);
 		padding: 8px 12px;
 		border-radius: 4px;
 		font-size: 0.85em;
@@ -64,27 +64,27 @@
 	label span {
 		display: block;
 		font-size: 0.85em;
-		color: #8b949e;
+		color: var(--text-secondary);
 		margin-bottom: 4px;
 	}
 	input {
 		width: 100%;
 		padding: 8px 12px;
-		background: #0d1117;
-		border: 1px solid #30363d;
+		background: var(--input-bg);
+		border: 1px solid var(--input-border);
 		border-radius: 4px;
-		color: #c9d1d9;
+		color: var(--text-primary);
 		font-size: 0.95em;
 		box-sizing: border-box;
 	}
 	input:focus {
 		outline: none;
-		border-color: #58a6ff;
+		border-color: var(--accent);
 	}
 	button {
 		width: 100%;
 		padding: 10px;
-		background: #238636;
+		background: var(--btn-primary-bg);
 		color: #fff;
 		border: none;
 		border-radius: 6px;
@@ -94,12 +94,12 @@
 		margin-top: 4px;
 	}
 	button:hover {
-		background: #2ea043;
+		background: var(--btn-primary-hover);
 	}
 	.footer {
 		text-align: center;
 		font-size: 0.85em;
-		color: #8b949e;
+		color: var(--text-secondary);
 		margin-top: 16px;
 	}
 </style>

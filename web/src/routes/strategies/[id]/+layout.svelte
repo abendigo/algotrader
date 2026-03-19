@@ -205,30 +205,30 @@
 		align-items: center;
 		gap: 8px;
 	}
-	.back-link { color: #58a6ff; font-size: 0.9em; }
-	.sep { color: #484f58; }
+	.back-link { color: var(--accent); font-size: 0.9em; }
+	.sep { color: var(--text-muted); }
 	h1 { font-size: 1.2em; margin: 0; }
-	.file-meta { color: #8b949e; font-size: 0.85em; }
+	.file-meta { color: var(--text-secondary); font-size: 0.85em; }
 	.header-actions { display: flex; gap: 6px; }
 	.btn-action {
 		padding: 4px 10px;
-		background: #21262d;
-		color: #c9d1d9;
-		border: 1px solid #30363d;
+		background: var(--bg-tertiary);
+		color: var(--text-primary);
+		border: 1px solid var(--border-light);
 		border-radius: 4px;
 		font-size: 0.82em;
 		cursor: pointer;
 	}
-	.btn-action:hover { background: #30363d; }
-	.btn-share { color: #a371f7; border-color: #a371f7; }
-	.btn-share:hover { background: #2a1a4a; }
-	.btn-warn { color: #d29922; border-color: #d29922; }
-	.btn-warn:hover { background: #2a2000; }
-	.btn-danger { color: #f85149; border-color: #f85149; }
-	.btn-danger:hover { background: #3d1a1a; }
+	.btn-action:hover { background: var(--border-light); }
+	.btn-share { color: var(--purple); border-color: var(--purple); }
+	.btn-share:hover { background: var(--purple-bg); }
+	.btn-warn { color: var(--warning); border-color: var(--warning); }
+	.btn-warn:hover { background: var(--warning-bg); }
+	.btn-danger { color: var(--danger); border-color: var(--danger); }
+	.btn-danger:hover { background: var(--danger-bg); }
 	.btn-primary {
 		padding: 6px 16px;
-		background: #238636;
+		background: var(--btn-primary-bg);
 		color: #fff;
 		border: none;
 		border-radius: 4px;
@@ -236,42 +236,42 @@
 		cursor: pointer;
 		font-size: 0.85em;
 	}
-	.btn-primary:hover { background: #2ea043; }
+	.btn-primary:hover { background: var(--btn-primary-hover); }
 	.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-	.btn-primary.btn-danger { background: #da3633; }
-	.btn-primary.btn-danger:hover { background: #f85149; }
-	.btn-primary.btn-warn { background: #9e6a03; }
-	.btn-primary.btn-warn:hover { background: #d29922; }
+	.btn-primary.btn-danger { background: var(--danger); }
+	.btn-primary.btn-danger:hover { background: var(--danger); }
+	.btn-primary.btn-warn { background: var(--warning); }
+	.btn-primary.btn-warn:hover { background: var(--warning); }
 	.success {
-		background: #0d2818; color: #3fb950;
+		background: var(--success-bg); color: var(--success);
 		padding: 8px 12px; border-radius: 4px; font-size: 0.85em; margin-bottom: 8px;
 	}
 	.error {
-		background: #5d1a1a; color: #f85149;
+		background: var(--danger-bg); color: var(--danger);
 		padding: 8px 12px; border-radius: 4px; font-size: 0.85em; margin-bottom: 8px;
 	}
 	.tab-bar {
 		display: flex;
 		gap: 0;
-		border-bottom: 1px solid #21262d;
+		border-bottom: 1px solid var(--border);
 		margin-bottom: 0;
 		flex-shrink: 0;
 	}
 	.tab {
 		padding: 8px 16px;
 		font-size: 0.9em;
-		color: #8b949e;
+		color: var(--text-secondary);
 		border-bottom: 2px solid transparent;
 		text-decoration: none;
 	}
-	.tab:hover { color: #c9d1d9; text-decoration: none; }
+	.tab:hover { color: var(--text-primary); text-decoration: none; }
 	.tab.active {
-		color: #c9d1d9;
-		border-bottom-color: #58a6ff;
+		color: var(--text-primary);
+		border-bottom-color: var(--accent);
 	}
 	.tab-count {
-		background: #21262d;
-		color: #8b949e;
+		background: var(--bg-tertiary);
+		color: var(--text-secondary);
 		padding: 1px 6px;
 		border-radius: 10px;
 		font-size: 0.8em;
@@ -283,20 +283,20 @@
 		padding-top: 16px;
 	}
 	.modal-backdrop {
-		position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+		position: fixed; inset: 0; background: var(--modal-backdrop);
 		display: flex; align-items: center; justify-content: center; z-index: 100;
 	}
 	.modal {
-		background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+		background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: 8px;
 		padding: 24px; min-width: 340px; max-width: 440px;
 	}
 	.modal h3 { margin: 0 0 12px; font-size: 1em; }
-	.modal label span { display: block; font-size: 0.85em; color: #8b949e; margin-bottom: 4px; }
+	.modal label span { display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px; }
 	.modal input[type="text"] {
-		width: 100%; padding: 8px 10px; background: #0d1117; border: 1px solid #30363d;
-		border-radius: 4px; color: #c9d1d9; font-size: 0.9em; box-sizing: border-box;
+		width: 100%; padding: 8px 10px; background: var(--input-bg); border: 1px solid var(--input-border);
+		border-radius: 4px; color: var(--text-primary); font-size: 0.9em; box-sizing: border-box;
 	}
-	.modal input:focus { outline: none; border-color: #58a6ff; }
-	.modal-warning { color: #8b949e; font-size: 0.85em; margin: 8px 0; }
+	.modal input:focus { outline: none; border-color: var(--accent); }
+	.modal-warning { color: var(--text-secondary); font-size: 0.85em; margin: 8px 0; }
 	.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 </style>

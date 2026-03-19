@@ -20,10 +20,10 @@
 		font-size: 0.9em;
 	}
 	.filename {
-		color: #8b949e;
+		color: var(--text-secondary);
 	}
 	.report-frame {
-		border: 1px solid #21262d;
+		border: 1px solid var(--border);
 		border-radius: 6px;
 		overflow: hidden;
 	}
@@ -31,6 +31,6 @@
 		width: 100%;
 		height: calc(100vh - 140px);
 		border: none;
-		background: #0d1117;
+		background: var(--bg-primary);
 	}
 </style>

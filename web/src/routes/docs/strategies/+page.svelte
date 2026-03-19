@@ -339,24 +339,24 @@ import type { SignalSnapshot } from "#backtest/types.js";
 	}
 	h1 {
 		font-size: 1.8em;
-		color: #c9d1d9;
+		color: var(--text-primary);
 		margin-bottom: 4px;
 	}
 	.subtitle {
-		color: #8b949e;
+		color: var(--text-secondary);
 		font-size: 1em;
 		margin-bottom: 32px;
 	}
 	.toc {
-		background: #161b22;
-		border: 1px solid #21262d;
+		background: var(--bg-secondary);
+		border: 1px solid var(--border);
 		border-radius: 8px;
 		padding: 16px 24px;
 		margin-bottom: 32px;
 	}
 	.toc h3 {
 		font-size: 0.9em;
-		color: #8b949e;
+		color: var(--text-secondary);
 		margin: 0 0 8px;
 	}
 	.toc ol {
@@ -372,24 +372,24 @@ import type { SignalSnapshot } from "#backtest/types.js";
 	}
 	h2 {
 		font-size: 1.3em;
-		color: #c9d1d9;
-		border-bottom: 1px solid #21262d;
+		color: var(--text-primary);
+		border-bottom: 1px solid var(--border);
 		padding-bottom: 6px;
 		margin-bottom: 12px;
 	}
 	h3 {
 		font-size: 1em;
-		color: #c9d1d9;
+		color: var(--text-primary);
 		margin: 20px 0 8px;
 	}
 	p {
-		color: #c9d1d9;
+		color: var(--text-primary);
 		font-size: 0.92em;
 		line-height: 1.7;
 		margin: 8px 0;
 	}
 	ul, ol {
-		color: #c9d1d9;
+		color: var(--text-primary);
 		font-size: 0.92em;
 		line-height: 1.8;
 		padding-left: 24px;
@@ -398,15 +398,15 @@ import type { SignalSnapshot } from "#backtest/types.js";
 		margin-bottom: 4px;
 	}
 	code {
-		background: #1c2128;
+		background: var(--bg-hover);
 		padding: 2px 6px;
 		border-radius: 3px;
 		font-size: 0.88em;
-		color: #79c0ff;
+		color: var(--accent);
 	}
 	pre {
-		background: #161b22;
-		border: 1px solid #21262d;
+		background: var(--bg-secondary);
+		border: 1px solid var(--border);
 		border-radius: 8px;
 		padding: 16px;
 		overflow-x: auto;
@@ -416,7 +416,7 @@ import type { SignalSnapshot } from "#backtest/types.js";
 		background: none;
 		padding: 0;
 		font-size: 0.85em;
-		color: #c9d1d9;
+		color: var(--text-primary);
 		line-height: 1.6;
 	}
 	.table-wrap {
@@ -431,20 +431,20 @@ import type { SignalSnapshot } from "#backtest/types.js";
 	th {
 		text-align: left;
 		padding: 8px 12px;
-		color: #8b949e;
-		border-bottom: 2px solid #21262d;
+		color: var(--text-secondary);
+		border-bottom: 2px solid var(--border);
 		white-space: nowrap;
 	}
 	td {
 		padding: 8px 12px;
-		border-bottom: 1px solid #21262d;
-		color: #c9d1d9;
+		border-bottom: 1px solid var(--border);
+		color: var(--text-primary);
 		vertical-align: top;
 	}
 	td code {
 		white-space: nowrap;
 	}
 	tr:hover td {
-		background: #1c2128;
+		background: var(--bg-hover);
 	}
 </style>

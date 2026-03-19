@@ -24,6 +24,12 @@
 		}
 	});
 
+	function isDarkMode(): boolean {
+		return document.documentElement.classList.contains('dark') ||
+			(!document.documentElement.classList.contains('light') &&
+			 window.matchMedia('(prefers-color-scheme: dark)').matches);
+	}
+
 	onMount(async () => {
 		monaco = await import("monaco-editor");
 
@@ -95,10 +101,29 @@
 			},
 		});
 
+		// Define a light theme matching the app
+		monaco.editor.defineTheme("algotrader-light", {
+			base: "vs",
+			inherit: true,
+			rules: [],
+			colors: {
+				"editor.background": "#ffffff",
+				"editor.foreground": "#24292f",
+				"editorLineNumber.foreground": "#8c959f",
+				"editorLineNumber.activeForeground": "#24292f",
+				"editor.selectionBackground": "#0969da33",
+				"editor.lineHighlightBackground": "#f6f8fa",
+				"editorWidget.background": "#f6f8fa",
+				"editorWidget.border": "#d0d7de",
+			},
+		});
+
+		const initialTheme = isDarkMode() ? "algotrader-dark" : "algotrader-light";
+
 		editor = monaco.editor.create(container, {
 			value,
 			language: "typescript",
-			theme: "algotrader-dark",
+			theme: initialTheme,
 			minimap: { enabled: false },
 			fontSize: 13,
 			lineNumbers: "on",
@@ -120,9 +145,31 @@
 			value = editor.getValue();
 			onsave?.();
 		});
+
+		// Watch for theme changes via prefers-color-scheme
+		const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+		const handleThemeChange = () => {
+			const theme = isDarkMode() ? "algotrader-dark" : "algotrader-light";
+			monaco.editor.setTheme(theme);
+		};
+		mediaQuery.addEventListener('change', handleThemeChange);
+
+		// Watch for class changes on <html> element
+		const observer = new MutationObserver(() => {
+			const theme = isDarkMode() ? "algotrader-dark" : "algotrader-light";
+			monaco.editor.setTheme(theme);
+		});
+		observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+
+		// Store cleanup refs
+		(container as any).__cleanup = () => {
+			mediaQuery.removeEventListener('change', handleThemeChange);
+			observer.disconnect();
+		};
 	});
 
 	onDestroy(() => {
+		(container as any)?.__cleanup?.();
 		editor?.dispose();
 	});
 </script>
@@ -134,7 +181,7 @@
 		width: 100%;
 		height: 100%;
 		min-height: 400px;
-		border: 1px solid #30363d;
+		border: 1px solid var(--border-light);
 		border-radius: 6px;
 		overflow: hidden;
 	}

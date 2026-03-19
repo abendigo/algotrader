@@ -82,11 +82,11 @@
 		margin-bottom: 8px;
 		flex-shrink: 0;
 	}
-	.message { font-size: 0.85em; color: #3fb950; }
-	.message.error { color: #f85149; }
+	.message { font-size: 0.85em; color: var(--success); }
+	.message.error { color: var(--danger); }
 	.btn-save {
 		padding: 6px 16px;
-		background: #238636;
+		background: var(--btn-primary-bg);
 		color: #fff;
 		border: none;
 		border-radius: 4px;
@@ -94,7 +94,7 @@
 		cursor: pointer;
 		font-size: 0.85em;
 	}
-	.btn-save:hover { background: #2ea043; }
+	.btn-save:hover { background: var(--btn-primary-hover); }
 	.btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
 	.editor-wrapper {
 		flex: 1;
@@ -105,11 +105,11 @@
 		min-height: 0;
 	}
 	.readonly-notice {
-		background: #161b22;
-		border: 1px solid #21262d;
+		background: var(--bg-secondary);
+		border: 1px solid var(--border);
 		border-radius: 8px;
 		padding: 40px;
 		text-align: center;
-		color: #8b949e;
+		color: var(--text-secondary);
 	}
 </style>

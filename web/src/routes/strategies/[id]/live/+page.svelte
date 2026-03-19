@@ -12,13 +12,13 @@
 
 <style>
 	.placeholder {
-		background: #161b22;
-		border: 1px solid #21262d;
+		background: var(--bg-secondary);
+		border: 1px solid var(--border);
 		border-radius: 8px;
 		padding: 40px;
 		text-align: center;
-		color: #8b949e;
+		color: var(--text-secondary);
 	}
-	h2 { font-size: 1.1em; color: #c9d1d9; margin: 0 0 12px; }
+	h2 { font-size: 1.1em; color: var(--text-primary); margin: 0 0 12px; }
 	p { margin: 4px 0; }
 </style>
