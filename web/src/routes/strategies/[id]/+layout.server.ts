@@ -125,7 +125,7 @@ export async function load({ params, locals }) {
             accountId: sf.accountId,
             config: sf.config ?? {},
             status: sf.status,
-            lastError: sf.lastError ?? null,
+            lastError: sf.lastError ?? sf.error ?? null,
             startedAt: sf.startedAt,
             lastHeartbeat: sf.lastHeartbeat,
             trades: matched.length,
