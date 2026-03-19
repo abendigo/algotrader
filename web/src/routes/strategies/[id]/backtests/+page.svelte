@@ -168,6 +168,32 @@
 	function fmtPct(n: number): string {
 		return (n >= 0 ? "+" : "") + n.toFixed(1) + "%";
 	}
+
+	function rerun(report: typeof data.reports[0]) {
+		backtestGranularity = report.granularity;
+
+		if (report.backtestConfig) {
+			const cfg = report.backtestConfig;
+			btSpreadMult = cfg.spreadMultiplier ?? 1.5;
+			btExecDelay = cfg.executionDelay ?? 1;
+			btTimeVaryingSpread = cfg.timeVaryingSpread ?? true;
+			btSlippage = cfg.slippagePips ?? 0.5;
+			if (cfg.fromDate) btFromDate = cfg.fromDate;
+			if (cfg.toDate) btToDate = cfg.toDate;
+
+			// Detect preset
+			if (btSpreadMult === 1 && btExecDelay === 0 && !btTimeVaryingSpread) btPreset = "ideal";
+			else if (btSpreadMult >= 2 && btExecDelay >= 2 && btTimeVaryingSpread) btPreset = "worst";
+			else btPreset = "realistic";
+		}
+
+		if (report.strategyConfig) {
+			strategyConfig = { ...strategyConfig, ...report.strategyConfig };
+		}
+
+		// Scroll to top of the form
+		window.scrollTo({ top: 0, behavior: "smooth" });
+	}
 </script>
 
 <div class="backtests-tab">
@@ -294,6 +320,7 @@
 							{/if}
 							<td class="when">{report.timestamp.slice(0, 16).replace("T", " ")}</td>
 							<td class="report-links" onclick={(e) => e.stopPropagation()}>
+								<button class="btn-rerun" onclick={() => rerun(report)}>Rerun</button>
 								<a href="/backtests/{report.filename}" target="_blank">HTML</a>
 								<a href="/backtests/{report.filename}/csv">CSV</a>
 							</td>
@@ -394,6 +421,8 @@
 	.muted { color: #8b949e; }
 	.report-links { display: flex; gap: 8px; }
 	.report-links a { font-size: 0.85em; color: #58a6ff; }
+	.btn-rerun { background: none; border: none; color: #58a6ff; cursor: pointer; font-size: 0.85em; padding: 0; }
+	.btn-rerun:hover { text-decoration: underline; }
 	.detail-row td { padding: 0; border-bottom: 2px solid #21262d; }
 	.detail-panel { display: flex; gap: 32px; padding: 12px 16px 12px 32px; background: #161b22; }
 	.detail-section h4 { font-size: 0.8em; color: #8b949e; margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.05em; }
