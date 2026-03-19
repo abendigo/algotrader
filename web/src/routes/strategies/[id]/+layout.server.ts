@@ -93,6 +93,7 @@ export async function load({ params, locals }) {
   interface PastSession {
     sessionId: string;
     accountId: string;
+    config: Record<string, unknown>;
     status: string;
     startedAt: string;
     lastHeartbeat: string;
@@ -121,6 +122,7 @@ export async function load({ params, locals }) {
           pastSessions.push({
             sessionId: sf.sessionId,
             accountId: sf.accountId,
+            config: sf.config ?? {},
             status: sf.status,
             startedAt: sf.startedAt,
             lastHeartbeat: sf.lastHeartbeat,

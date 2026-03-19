@@ -12,10 +12,13 @@
 		step?: number;
 	}
 
+	import { invalidateAll } from "$app/navigation";
+
 	let actionMessage = $state("");
 	let actionError = $state("");
 	let starting = $state(false);
 	let liveAccountId = $state("");
+	let deleteTarget = $state<string | null>(null);
 	let liveConfig = $state<Record<string, unknown>>({});
 
 	function getFields(): [string, ConfigFieldDef][] {
@@ -54,6 +57,23 @@
 			actionError = result.error;
 		}
 		starting = false;
+	}
+
+	function rerunSession(ps: typeof data.pastSessions[0]) {
+		liveAccountId = ps.accountId;
+		if (ps.config && typeof ps.config === "object") {
+			liveConfig = { ...liveConfig, ...ps.config };
+		}
+		window.scrollTo({ top: 0, behavior: "smooth" });
+	}
+
+	async function deleteSession() {
+		if (!deleteTarget) return;
+		const res = await fetch(`/api/live/session?id=${deleteTarget}`, { method: "DELETE" });
+		if (res.ok) {
+			deleteTarget = null;
+			await invalidateAll();
+		}
 	}
 
 	// Poll for sessions on this strategy
@@ -204,16 +224,32 @@
 							<td>{ps.winners}W / {ps.losers}L</td>
 							<td class:pos={ps.totalPnl > 0} class:neg={ps.totalPnl < 0}>{ps.totalPnl >= 0 ? "+" : ""}{ps.totalPnl.toFixed(2)}</td>
 							<td class="report-links">
+								<button class="btn-link" onclick={() => rerunSession(ps)}>Rerun</button>
 								{#if ps.trades > 0}
 									<a href="/api/live/report?session={ps.sessionId}&format=html" target="_blank">HTML</a>
 									<a href="/api/live/report?session={ps.sessionId}&format=csv">CSV</a>
 								{/if}
+								<button class="btn-link" disabled title="Coming soon">Share</button>
+								<button class="btn-link btn-delete" onclick={() => deleteTarget = ps.sessionId}>Delete</button>
 							</td>
 						</tr>
 					{/each}
 				</tbody>
 			</table>
 		</section>
+	{/if}
+
+	{#if deleteTarget}
+		<div class="modal-backdrop" onclick={() => deleteTarget = null}>
+			<div class="modal" onclick={(e) => e.stopPropagation()}>
+				<h3>Delete session?</h3>
+				<p class="modal-warning">This will remove the session record. Trade data in trades.jsonl is preserved.</p>
+				<div class="modal-actions">
+					<button class="btn-action" onclick={() => deleteTarget = null}>Cancel</button>
+					<button class="btn-primary btn-danger" onclick={deleteSession}>Delete</button>
+				</div>
+			</div>
+		</div>
 	{/if}
 </div>
 
@@ -255,4 +291,18 @@
 	.neg { color: #f85149; }
 	.report-links { display: flex; gap: 8px; }
 	.report-links a { font-size: 0.85em; color: #58a6ff; }
+	.btn-link { background: none; border: none; color: #58a6ff; cursor: pointer; font-size: 0.85em; padding: 0; }
+	.btn-link:hover { text-decoration: underline; }
+	.btn-link:disabled { color: #484f58; cursor: not-allowed; text-decoration: none; }
+	.btn-delete { color: #f85149; }
+	.btn-action { padding: 4px 10px; background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; font-size: 0.82em; cursor: pointer; }
+	.btn-action:hover { background: #30363d; }
+	.btn-primary { padding: 6px 16px; background: #238636; color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 0.85em; }
+	.btn-primary.btn-danger { background: #da3633; }
+	.btn-primary.btn-danger:hover { background: #f85149; }
+	.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
+	.modal { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 24px; min-width: 340px; max-width: 440px; }
+	.modal h3 { margin: 0 0 12px; font-size: 1em; }
+	.modal-warning { color: #8b949e; font-size: 0.85em; margin: 8px 0; }
+	.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 </style>
