@@ -5,13 +5,22 @@ import { collect, getExistingDataRange } from "../../../../../../src/data/collec
 import { GRANULARITY_SECONDS, type Granularity } from "../../../../../../src/core/types.js";
 import { createJob, updateJob, cancelJob, isJobCancelled, getAllJobs, clearFinishedJobs } from "$lib/server/collect-jobs.js";
 
-/** Batch sizes in days, scaled by granularity */
+/** Batch sizes in days for "previous" direction */
 function getBatchDays(granularity: string): number {
   const seconds = GRANULARITY_SECONDS[granularity as Granularity] ?? 60;
-  if (seconds <= 60) return 7;       // S5-M1
-  if (seconds <= 1800) return 30;    // M5-M30
-  if (seconds <= 43200) return 90;   // H1-H12
-  return 365;                        // D, W, M
+  if (seconds <= 60) return 90;      // S5-M1: 3 months
+  if (seconds <= 1800) return 180;   // M5-M30: 6 months
+  if (seconds <= 43200) return 365;  // H1-H12: 1 year
+  return 365 * 5;                    // D, W, M: 5 years
+}
+
+/** Max history for "fetch all" */
+function getMaxDays(granularity: string): number {
+  const seconds = GRANULARITY_SECONDS[granularity as Granularity] ?? 60;
+  if (seconds <= 60) return 365;       // S5-M1: 1 year
+  if (seconds <= 1800) return 365 * 2; // M5-M30: 2 years
+  if (seconds <= 43200) return 365 * 5; // H1-H12: 5 years
+  return 365 * 10;                     // D, W, M: 10 years
 }
 
 /**
@@ -32,7 +41,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
   const body = await request.json();
   const granularity = body.granularity as string;
-  const direction = body.direction as "latest" | "previous";
+  const direction = body.direction as "latest" | "previous" | "all";
   const instruments = body.instruments as string[] | undefined;
   const label = body.label as string | undefined;
 
@@ -40,26 +49,25 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     return json({ error: "granularity and direction are required" }, { status: 400 });
   }
 
-  const batchDays = getBatchDays(granularity);
   const existing = getExistingDataRange(granularity, instruments);
-
+  const to = new Date();
   let from: Date;
-  let to: Date;
 
-  if (direction === "latest") {
+  if (direction === "all") {
+    from = new Date(Date.now() - getMaxDays(granularity) * 86_400_000);
+  } else if (direction === "latest") {
     if (existing) {
       from = new Date(new Date(existing.latest).getTime() - 86_400_000);
     } else {
-      from = new Date(Date.now() - batchDays * 86_400_000);
+      from = new Date(Date.now() - getBatchDays(granularity) * 86_400_000);
     }
-    to = new Date();
   } else {
+    // previous — go back one batch from earliest, but always collect up to today
     if (existing) {
-      to = new Date(existing.earliest);
-      from = new Date(to.getTime() - batchDays * 86_400_000);
+      const batchDays = getBatchDays(granularity);
+      from = new Date(new Date(existing.earliest).getTime() - batchDays * 86_400_000);
     } else {
-      to = new Date();
-      from = new Date(to.getTime() - batchDays * 86_400_000);
+      from = new Date(Date.now() - getBatchDays(granularity) * 86_400_000);
     }
   }
 

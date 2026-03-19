@@ -91,12 +91,12 @@
 
   let pendingCollects = $state<Set<string>>(new Set());
 
-  async function collectGroup(granularity: string, direction: "latest" | "previous", instruments: string[], label?: string) {
+  async function collectGroup(granularity: string, direction: "latest" | "previous" | "all", instruments: string[], label?: string) {
     const key = `${granularity}-${direction}-${instruments.join(",")}`;
     pendingCollects.add(key);
     pendingCollects = new Set(pendingCollects);
-    const range = fetchRange(granularity, direction, instruments);
-    const fullLabel = label ? `${label} (${range})` : (instruments.length === 1 ? `${instruments[0]} (${range})` : `${instruments.length} instruments (${range})`);
+    const hint = direction === "all" ? getMaxLabel(granularity) : (direction === "previous" ? `from ${previousFromDate(granularity, instruments)}` : "latest");
+    const fullLabel = label ? `${label} (${hint})` : (instruments.length === 1 ? `${instruments[0]} (${hint})` : `${instruments.length} instruments (${hint})`);
     try {
       const res = await fetch("/api/admin/collect", {
         method: "POST",
@@ -132,13 +132,29 @@
 
   function getBatchDays(gran: string): number {
     const s = GRAN_SECONDS[gran] ?? 60;
-    if (s <= 60) return 7;
-    if (s <= 1800) return 30;
-    if (s <= 43200) return 90;
-    return 365;
+    if (s <= 60) return 90;
+    if (s <= 1800) return 180;
+    if (s <= 43200) return 365;
+    return 365 * 5;
   }
 
-  function fetchRange(granularity: string, direction: "latest" | "previous", instruments: string[]): string {
+  function getMaxDays(gran: string): number {
+    const s = GRAN_SECONDS[gran] ?? 60;
+    if (s <= 60) return 365;
+    if (s <= 1800) return 365 * 2;
+    if (s <= 43200) return 365 * 5;
+    return 365 * 10;
+  }
+
+  function getMaxLabel(gran: string): string {
+    const s = GRAN_SECONDS[gran] ?? 60;
+    if (s <= 60) return "1 year";
+    if (s <= 1800) return "2 years";
+    if (s <= 43200) return "5 years";
+    return "10 years";
+  }
+
+  function getCoverage(granularity: string, instruments: string[]) {
     const coverage = data.granularities.find((g: any) => g.name === granularity)?.coverage ?? {};
     let earliest: string | null = null;
     let latest: string | null = null;
@@ -148,29 +164,21 @@
       if (!earliest || cov.earliest < earliest) earliest = cov.earliest;
       if (!latest || cov.latest > latest) latest = cov.latest;
     }
+    return { earliest, latest };
+  }
+
+  function previousFromDate(granularity: string, instruments: string[]): string {
+    const { earliest } = getCoverage(granularity, instruments);
     const batchDays = getBatchDays(granularity);
-    const ms = batchDays * 86_400_000;
-    let from: Date, to: Date;
-    if (direction === "latest") {
-      to = new Date();
-      from = latest ? new Date(new Date(latest).getTime() - 86_400_000) : new Date(Date.now() - ms);
-    } else {
-      if (earliest) {
-        to = new Date(earliest);
-        from = new Date(to.getTime() - ms);
-      } else {
-        to = new Date();
-        from = new Date(Date.now() - ms);
-      }
-    }
-    return `${from.toISOString().slice(0, 10)} → ${to.toISOString().slice(0, 10)}`;
+    const from = earliest
+      ? new Date(new Date(earliest).getTime() - batchDays * 86_400_000)
+      : new Date(Date.now() - batchDays * 86_400_000);
+    return from.toISOString().slice(0, 10);
   }
 
   function isLatestCurrent(granularity: string, instruments: string[]): boolean {
     const coverage = data.granularities.find((g: any) => g.name === granularity)?.coverage ?? {};
-    const today = new Date().toISOString().slice(0, 10);
     const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-    // Consider "current" if every instrument with data has latest >= yesterday
     let hasAny = false;
     for (const inst of instruments) {
       const cov = coverage[inst];
@@ -278,14 +286,15 @@
                 <div class="group-actions" role="none" onclick={(e) => e.stopPropagation()}>
                   {#if data.hasApiKey && !isGroupBusy(gran.name, instNames)}
                     {@const latestCurrent = isLatestCurrent(gran.name, instNames)}
-                    <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames, groupLabels[groupType] ?? groupType)}
-                      title={latestCurrent ? "Already up to date" : fetchRange(gran.name, "latest", instNames)}
-                      disabled={latestCurrent}>
-                      Fetch Latest {#if !latestCurrent}<span class="range-hint">{fetchRange(gran.name, "latest", instNames)}</span>{:else}<span class="range-hint">up to date</span>{/if}
+                    <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", instNames, groupLabels[groupType] ?? groupType)}>
+                      Fetch Previous <span class="range-hint">from {previousFromDate(gran.name, instNames)}</span>
                     </button>
-                    <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", instNames, groupLabels[groupType] ?? groupType)}
-                      title={fetchRange(gran.name, "previous", instNames)}>
-                      Fetch Previous <span class="range-hint">{fetchRange(gran.name, "previous", instNames)}</span>
+                    <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames, groupLabels[groupType] ?? groupType)}
+                      disabled={latestCurrent}>
+                      Fetch Latest {#if latestCurrent}<span class="range-hint">up to date</span>{/if}
+                    </button>
+                    <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "all", instNames, groupLabels[groupType] ?? groupType)}>
+                      Fetch All <span class="range-hint">{getMaxLabel(gran.name)}</span>
                     </button>
                   {/if}
                 </div>
@@ -311,8 +320,8 @@
                           <td class="inst-actions">
                             {#if data.hasApiKey && !isGroupBusy(gran.name, [inst.name])}
                               {@const instCurrent = isLatestCurrent(gran.name, [inst.name])}
-                              <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])} title={instCurrent ? "Up to date" : fetchRange(gran.name, "latest", [inst.name])} disabled={instCurrent}>Fetch Latest {#if !instCurrent}<span class="range-hint">{fetchRange(gran.name, "latest", [inst.name])}</span>{:else}<span class="range-hint">up to date</span>{/if}</button>
-                              <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])} title={fetchRange(gran.name, "previous", [inst.name])}>Fetch Previous <span class="range-hint">{fetchRange(gran.name, "previous", [inst.name])}</span></button>
+                              <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])}>Fetch Previous <span class="range-hint">from {previousFromDate(gran.name, [inst.name])}</span></button>
+                              <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])} disabled={instCurrent}>Fetch Latest {#if instCurrent}<span class="range-hint">up to date</span>{/if}</button>
                             {/if}
                           </td>
                         </tr>
@@ -340,14 +349,15 @@
               <div class="group-actions" role="none" onclick={(e) => e.stopPropagation()}>
                 {#if data.hasApiKey && !isGroupBusy(gran.name, instNames)}
                   {@const latestCurrent2 = isLatestCurrent(gran.name, instNames)}
-                  <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames, groupType)}
-                    title={latestCurrent2 ? "Already up to date" : fetchRange(gran.name, "latest", instNames)}
-                    disabled={latestCurrent2}>
-                    Fetch Latest {#if !latestCurrent2}<span class="range-hint">{fetchRange(gran.name, "latest", instNames)}</span>{:else}<span class="range-hint">up to date</span>{/if}
+                  <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", instNames, groupType)}>
+                    Fetch Previous <span class="range-hint">from {previousFromDate(gran.name, instNames)}</span>
                   </button>
-                  <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", instNames, groupType)}
-                    title={fetchRange(gran.name, "previous", instNames)}>
-                    Fetch Previous <span class="range-hint">{fetchRange(gran.name, "previous", instNames)}</span>
+                  <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames, groupType)}
+                    disabled={latestCurrent2}>
+                    Fetch Latest {#if latestCurrent2}<span class="range-hint">up to date</span>{/if}
+                  </button>
+                  <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "all", instNames, groupType)}>
+                    Fetch All <span class="range-hint">{getMaxLabel(gran.name)}</span>
                   </button>
                 {/if}
               </div>
@@ -367,8 +377,8 @@
                         <td class="inst-actions">
                           {#if data.hasApiKey && !isGroupBusy(gran.name, [inst.name])}
                             {@const instCurrent2 = isLatestCurrent(gran.name, [inst.name])}
-                            <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])} disabled={instCurrent2}>Fetch Latest {#if !instCurrent2}<span class="range-hint">{fetchRange(gran.name, "latest", [inst.name])}</span>{:else}<span class="range-hint">up to date</span>{/if}</button>
-                            <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])}>Fetch Previous <span class="range-hint">{fetchRange(gran.name, "previous", [inst.name])}</span></button>
+                            <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])}>Fetch Previous <span class="range-hint">from {previousFromDate(gran.name, [inst.name])}</span></button>
+                            <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])} disabled={instCurrent2}>Fetch Latest {#if instCurrent2}<span class="range-hint">up to date</span>{/if}</button>
                           {/if}
                         </td>
                       </tr>
