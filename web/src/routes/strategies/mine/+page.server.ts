@@ -26,9 +26,18 @@ export async function load({ locals }) {
   const allStrategies = listAllStrategies(userId);
   const userStrategies = allStrategies.filter((s) => s.source === "user");
 
+  // Track which user strategies have a shared/builtin counterpart (revertable)
+  const nonUserIds = new Set(
+    allStrategies.filter((s) => s.source !== "user").map((s) => s.id),
+  );
+  const userStrategiesWithMeta = userStrategies.map((s) => ({
+    ...s,
+    revertable: nonUserIds.has(s.id),
+  }));
+
   return {
     strategies: allStrategies,
-    userStrategies,
+    userStrategies: userStrategiesWithMeta,
     accounts,
     availableGranularities,
   };

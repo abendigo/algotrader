@@ -110,6 +110,68 @@
 		return filename.replace(".ts", "");
 	}
 
+	// Fork/Delete/Revert state
+	let forkTarget = $state<string | null>(null);
+	let forkName = $state("");
+	let deleteTarget = $state<string | null>(null);
+	let revertTarget = $state<string | null>(null);
+
+	async function forkStrategy() {
+		if (!forkTarget || !forkName) return;
+		actionMessage = "";
+		actionError = "";
+
+		const res = await fetch(`/api/strategies/${forkTarget}`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ action: "fork", newId: forkName }),
+		});
+		const result = await res.json();
+		if (res.ok) {
+			actionMessage = `Forked to ${forkName}.ts`;
+			forkTarget = null;
+			forkName = "";
+			location.reload();
+		} else {
+			actionError = result.error;
+		}
+	}
+
+	async function deleteStrategy() {
+		if (!deleteTarget) return;
+		actionMessage = "";
+		actionError = "";
+
+		const res = await fetch(`/api/strategies/${deleteTarget}`, { method: "DELETE" });
+		const result = await res.json();
+		if (res.ok) {
+			actionMessage = `Deleted ${deleteTarget}.ts`;
+			deleteTarget = null;
+			location.reload();
+		} else {
+			actionError = result.error;
+		}
+	}
+
+	async function revertStrategy() {
+		if (!revertTarget) return;
+		actionMessage = "";
+		actionError = "";
+
+		const res = await fetch(`/api/strategies/${revertTarget}`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ action: "revert" }),
+		});
+		const result = await res.json();
+		if (res.ok) {
+			actionMessage = `Reverted ${revertTarget}.ts to original`;
+			revertTarget = null;
+		} else {
+			actionError = result.error;
+		}
+	}
+
 	// Strategies are already merged by the server with source field
 	const allStrategies = $derived(
 		data.strategies.map((s: any) => ({ id: s.id, name: s.name, source: s.source as "user" | "shared" | "builtin", configFields: (s.configFields ?? {}) as ConfigFields }))
@@ -237,7 +299,6 @@
 				<tr>
 					<th>Name</th>
 					<th>File</th>
-					<th>Source</th>
 					<th></th>
 				</tr>
 			</thead>
@@ -245,21 +306,62 @@
 				{#each data.userStrategies as strategy}
 					<tr>
 						<td class="name">{strategy.name}</td>
-						<td class="mono">{strategy.filename}</td>
-						<td>
-							{#if strategy.sourceId}
-								<span class="source">Copied from shared</span>
-							{:else}
-								<span class="source private">Private</span>
+						<td class="mono">{strategy.id}.ts</td>
+						<td class="actions">
+							<a href="/strategies/edit/{strategy.id}" class="btn-action">Edit</a>
+							<button class="btn-action" onclick={() => { forkTarget = strategy.id; forkName = strategy.id + "-v2"; }}>Fork</button>
+							{#if strategy.revertable}
+								<button class="btn-action btn-warn" onclick={() => { revertTarget = strategy.id; }}>Revert</button>
 							{/if}
-						</td>
-						<td>
-							<a href="/strategies/edit/{strategySlug(strategy.filename)}" class="btn-edit">Edit</a>
+							<button class="btn-action btn-danger" onclick={() => { deleteTarget = strategy.id; }}>Delete</button>
 						</td>
 					</tr>
 				{/each}
 			</tbody>
 		</table>
+	{/if}
+
+	{#if forkTarget}
+		<div class="modal-backdrop" onclick={() => forkTarget = null}>
+			<div class="modal" onclick={(e) => e.stopPropagation()}>
+				<h3>Fork {forkTarget}.ts</h3>
+				<label>
+					<span>New strategy name</span>
+					<input type="text" bind:value={forkName} placeholder="my-strategy-v2"
+						onkeydown={(e) => { if (e.key === "Enter") forkStrategy(); }} />
+				</label>
+				<div class="modal-actions">
+					<button class="btn-action" onclick={() => forkTarget = null}>Cancel</button>
+					<button class="btn-primary" onclick={forkStrategy} disabled={!forkName}>Fork</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	{#if deleteTarget}
+		<div class="modal-backdrop" onclick={() => deleteTarget = null}>
+			<div class="modal" onclick={(e) => e.stopPropagation()}>
+				<h3>Delete {deleteTarget}.ts?</h3>
+				<p class="modal-warning">This cannot be undone.</p>
+				<div class="modal-actions">
+					<button class="btn-action" onclick={() => deleteTarget = null}>Cancel</button>
+					<button class="btn-primary btn-danger" onclick={deleteStrategy}>Delete</button>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	{#if revertTarget}
+		<div class="modal-backdrop" onclick={() => revertTarget = null}>
+			<div class="modal" onclick={(e) => e.stopPropagation()}>
+				<h3>Revert {revertTarget}.ts?</h3>
+				<p class="modal-warning">This will overwrite your version with the original shared/built-in version.</p>
+				<div class="modal-actions">
+					<button class="btn-action" onclick={() => revertTarget = null}>Cancel</button>
+					<button class="btn-primary btn-warn" onclick={revertStrategy}>Revert</button>
+				</div>
+			</div>
+		</div>
 	{/if}
 
 	<section>
@@ -516,7 +618,12 @@ tttttt{/if}
 	.mono { font-family: monospace; font-size: 0.85em; color: #8b949e; }
 	.source { color: #8b949e; font-size: 0.85em; }
 	.source.private { color: #58a6ff; }
-	.btn-edit {
+	.actions {
+		display: flex;
+		gap: 6px;
+		justify-content: flex-end;
+	}
+	.btn-action {
 		padding: 4px 10px;
 		background: #21262d;
 		color: #c9d1d9;
@@ -524,8 +631,77 @@ tttttt{/if}
 		border-radius: 4px;
 		font-size: 0.82em;
 		text-decoration: none;
+		cursor: pointer;
 	}
-	.btn-edit:hover { background: #30363d; }
+	.btn-action:hover { background: #30363d; }
+	.btn-warn { color: #d29922; border-color: #d29922; }
+	.btn-warn:hover { background: #2a2000; }
+	.btn-danger { color: #f85149; border-color: #f85149; }
+	.btn-danger:hover { background: #3d1a1a; }
+	.modal-backdrop {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.6);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 100;
+	}
+	.modal {
+		background: #161b22;
+		border: 1px solid #30363d;
+		border-radius: 8px;
+		padding: 24px;
+		min-width: 340px;
+		max-width: 440px;
+	}
+	.modal h3 {
+		margin: 0 0 12px;
+		font-size: 1em;
+	}
+	.modal label span {
+		display: block;
+		font-size: 0.85em;
+		color: #8b949e;
+		margin-bottom: 4px;
+	}
+	.modal input[type="text"] {
+		width: 100%;
+		padding: 8px 10px;
+		background: #0d1117;
+		border: 1px solid #30363d;
+		border-radius: 4px;
+		color: #c9d1d9;
+		font-size: 0.9em;
+		box-sizing: border-box;
+	}
+	.modal input:focus {
+		outline: none;
+		border-color: #58a6ff;
+	}
+	.modal-warning {
+		color: #8b949e;
+		font-size: 0.85em;
+		margin: 8px 0;
+	}
+	.modal-actions {
+		display: flex;
+		gap: 8px;
+		justify-content: flex-end;
+		margin-top: 16px;
+	}
+	.modal-actions .btn-primary.btn-danger {
+		background: #da3633;
+	}
+	.modal-actions .btn-primary.btn-danger:hover {
+		background: #f85149;
+	}
+	.modal-actions .btn-primary.btn-warn {
+		background: #9e6a03;
+	}
+	.modal-actions .btn-primary.btn-warn:hover {
+		background: #d29922;
+	}
 	h2 {
 		font-size: 1.1em;
 		color: #8b949e;
