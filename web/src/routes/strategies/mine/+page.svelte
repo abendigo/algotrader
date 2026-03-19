@@ -232,6 +232,7 @@
 		</div>
 	{:else}
 		<table>
+
 			<thead>
 				<tr>
 					<th>Name</th>
@@ -255,9 +256,10 @@
 				{/each}
 			</tbody>
 		</table>
+	{/if}
 
-		<section>
-			<h2>Run Backtest</h2>
+	<section>
+		<h2>Run Backtest</h2>
 			<div class="action-row">
 				<select bind:value={backtestStrategy}>
 					<option value="">Select strategy...</option>
@@ -268,9 +270,9 @@
 							{/each}
 						</optgroup>
 					{/if}
-					{#if allStrategies.filter(s => s.source === "shared").length > 0}
+					{#if allStrategies.filter(s => s.source !== "user").length > 0}
 						<optgroup label="Shared">
-							{#each allStrategies.filter(s => s.source === "shared") as s}
+							{#each allStrategies.filter(s => s.source !== "user") as s}
 								<option value={s.id}>{s.name}</option>
 							{/each}
 						</optgroup>
@@ -392,9 +394,9 @@
 								{/each}
 							</optgroup>
 						{/if}
-						{#if allStrategies.filter(s => s.source === "shared").length > 0}
+						{#if allStrategies.filter(s => s.source !== "user").length > 0}
 							<optgroup label="Shared">
-								{#each allStrategies.filter(s => s.source === "shared") as s}
+								{#each allStrategies.filter(s => s.source !== "user") as s}
 									<option value={s.id}>{s.name}</option>
 								{/each}
 							</optgroup>
@@ -436,7 +438,6 @@
 				<p class="hint">Monitor and stop sessions on the <a href="/live">Live</a> page.</p>
 			{/if}
 		</section>
-	{/if}
 </div>
 
 <style>
