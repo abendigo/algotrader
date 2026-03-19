@@ -79,7 +79,7 @@ export async function loadStrategy(
   }
 
   const fileUrl = pathToFileURL(filePath).href;
-  const mod = await import(fileUrl);
+  const mod = await import(/* @vite-ignore */ fileUrl);
 
   // Find the Strategy class export (convention: name ends with "Strategy")
   const strategyClassName = Object.keys(mod).find(
