@@ -177,7 +177,7 @@ export function getReportCsv(userId: string, filename: string): string | null {
 	return readFileSync(path, 'utf-8');
 }
 
-const SAFE_FILENAME = /^[a-z0-9][a-z0-9_-]*$/;
+const SAFE_FILENAME = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;
 
 export function deleteReport(userId: string, filename: string): boolean {
 	if (!SAFE_FILENAME.test(filename)) return false;
