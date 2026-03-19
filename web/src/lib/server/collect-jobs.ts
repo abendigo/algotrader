@@ -9,6 +9,7 @@ export interface CollectJob {
   id: string;
   granularity: string;
   direction: "latest" | "previous";
+  label?: string;
   instruments?: string[];
   startedAt: string;
   progress: CollectProgress;
@@ -17,12 +18,13 @@ export interface CollectJob {
 const jobs = new Map<string, CollectJob>();
 let jobCounter = 0;
 
-export function createJob(granularity: string, direction: "latest" | "previous", instruments?: string[]): CollectJob {
+export function createJob(granularity: string, direction: "latest" | "previous", instruments?: string[], label?: string): CollectJob {
   const id = `collect-${++jobCounter}`;
   const job: CollectJob = {
     id,
     granularity,
     direction,
+    label,
     instruments,
     startedAt: new Date().toISOString(),
     progress: {

@@ -34,6 +34,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   const granularity = body.granularity as string;
   const direction = body.direction as "latest" | "previous";
   const instruments = body.instruments as string[] | undefined;
+  const label = body.label as string | undefined;
 
   if (!granularity || !direction) {
     return json({ error: "granularity and direction are required" }, { status: 400 });
@@ -63,7 +64,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   // Create job and start collection in background
-  const job = createJob(granularity, direction, instruments);
+  const job = createJob(granularity, direction, instruments, label);
 
   // Fire and forget — the job runs asynchronously
   collect({

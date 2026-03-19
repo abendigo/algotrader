@@ -8,6 +8,7 @@
     id: string;
     granularity: string;
     direction: string;
+    label?: string;
     instruments?: string[];
     progress: {
       status: "running" | "done" | "error";
@@ -83,12 +84,12 @@
     });
   }
 
-  async function collectGroup(granularity: string, direction: "latest" | "previous", instruments: string[]) {
+  async function collectGroup(granularity: string, direction: "latest" | "previous", instruments: string[], label?: string) {
     try {
       const res = await fetch("/api/admin/collect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ granularity, direction, instruments }),
+        body: JSON.stringify({ granularity, direction, instruments, label: label ?? (instruments.length === 1 ? instruments[0] : `${instruments.length} instruments`) }),
       });
       if (res.ok) {
         const jobsRes = await fetch("/api/admin/collect");
@@ -151,7 +152,7 @@
         <div class="job-row">
           <span class="job-gran">{job.granularity}</span>
           <span class="job-dir">{job.direction}</span>
-          <span class="job-scope">{instCount === 1 ? job.instruments?.[0] ?? "1 instrument" : `${instCount} instruments`}</span>
+          <span class="job-scope">{job.label ?? `${instCount} instruments`}</span>
           <span class="job-current">{job.progress.currentInstrument ?? "Starting..."}</span>
           <span class="job-progress">{job.progress.completedInstruments}/{instCount} done — {job.progress.fetchedDayFiles} files</span>
           {#if job.progress.errors > 0}
@@ -201,10 +202,10 @@
                 </button>
                 <div class="group-actions">
                   {#if data.hasApiKey && !isGroupBusy(gran.name, instNames)}
-                    <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames)}>
+                    <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames, groupLabels[groupType] ?? groupType)}>
                       Fetch Latest
                     </button>
-                    <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", instNames)}>
+                    <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", instNames, groupLabels[groupType] ?? groupType)}>
                       Fetch Previous
                     </button>
                   {/if}
@@ -256,10 +257,10 @@
               </button>
               <div class="group-actions">
                 {#if data.hasApiKey && !isGroupBusy(gran.name, instNames)}
-                  <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames)}>
+                  <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames, groupType)}>
                     Fetch Latest
                   </button>
-                  <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", instNames)}>
+                  <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", instNames, groupType)}>
                     Fetch Previous
                   </button>
                 {/if}
