@@ -4,6 +4,7 @@ dist/
 /data/users/
 /data/users.json
 /data/sessions.json
+/data/system-config.json
 /reports/
 /logs/
 *.local

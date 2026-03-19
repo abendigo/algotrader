@@ -36,6 +36,18 @@ If backtests start competing for CPU with the web server, consider these upgrade
 - **Option B:** Spin up a container per backtest — clean isolation, but container startup overhead for short runs
 - **Option C:** Dedicated backtest worker container — always-running, accepts jobs via HTTP, can queue/parallelize. Best for multi-user scenarios.
 
+## Strategy Management
+- [ ] Monaco-based in-browser strategy editor on `/strategies/mine` (TypeScript IntelliSense with Strategy interface types)
+- [ ] File upload endpoint as fallback (multipart upload to user strategy directory)
+- [ ] Validate uploaded/saved strategies (exports `strategyMeta` + `*Strategy` class, restrict dangerous imports)
+- [ ] AI strategy assistant: users provide their own Claude API key, chat with an AI that can read/write strategies, run backtests, and interpret results
+  - Store user API key encrypted (like OANDA keys)
+  - System prompt with Strategy interface, available imports, example strategies
+  - Tools: read/write strategy files, run backtest, read results, list instruments
+  - Let users pick model (Sonnet vs Opus) for cost control
+  - Conversation persistence
+  - Budget/rate-limit backtests per user (server compute cost)
+
 ## Code Quality
 - [ ] Convert all tabs to spaces (web/ uses tabs, src/ uses spaces — standardize on spaces)
 
