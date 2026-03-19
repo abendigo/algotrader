@@ -74,7 +74,16 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		const destFile = join(userDir, `${newId}.ts`);
 		if (existsSync(destFile)) return json({ error: "A strategy with that name already exists" }, { status: 409 });
 
-		copyFileSync(sourceFile, destFile);
+		let content = readFileSync(sourceFile, "utf-8");
+
+		// Update the strategyMeta name to match the new filename
+		const displayName = newId.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+		content = content.replace(
+			/(export\s+const\s+strategyMeta\s*=\s*\{[^}]*name:\s*)(["'`])([^"'`]*)\2/,
+			`$1$2${displayName}$2`,
+		);
+
+		writeFileSync(destFile, content, "utf-8");
 		return json({ success: true, id: newId });
 	}
 
