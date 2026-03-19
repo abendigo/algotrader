@@ -2,6 +2,7 @@
 
 # --- Stage 1: Install dependencies and build ---
 FROM node:22-slim AS build
+ARG GIT_SHA=unknown
 
 WORKDIR /app
 
@@ -19,7 +20,8 @@ COPY . .
 # Generate strategy docs from TypeScript interfaces
 RUN npx tsx src/tools/gen-strategy-docs.ts
 
-# Build web app
+# Build web app (GIT_SHA is baked into the UI)
+ENV GIT_SHA=$GIT_SHA
 RUN cd web && npm run build
 
 # --- Stage 2: Production runtime ---
