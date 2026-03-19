@@ -181,6 +181,7 @@
                         <th>Instrument</th>
                         <th>Days</th>
                         <th>Range</th>
+                        <th></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -190,6 +191,12 @@
                           <td class="inst-name">{inst.displayName} <span class="muted">({inst.name})</span></td>
                           <td>{cov?.days ?? "—"}</td>
                           <td class="date">{cov ? `${cov.earliest} to ${cov.latest}` : "—"}</td>
+                          <td class="inst-actions">
+                            {#if data.hasApiKey && (!job || job.progress.status !== "running")}
+                              <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])}>Latest</button>
+                              <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])}>Previous</button>
+                            {/if}
+                          </td>
                         </tr>
                       {/each}
                     </tbody>
@@ -224,7 +231,7 @@
               {#if expandedGroups.has(groupKey)}
                 <table class="inst-table">
                   <thead>
-                    <tr><th>Instrument</th><th>Days</th><th>Range</th></tr>
+                    <tr><th>Instrument</th><th>Days</th><th>Range</th><th></th></tr>
                   </thead>
                   <tbody>
                     {#each instruments as inst}
@@ -233,6 +240,12 @@
                         <td class="inst-name">{inst.displayName} <span class="muted">({inst.name})</span></td>
                         <td>{cov?.days ?? "—"}</td>
                         <td class="date">{cov ? `${cov.earliest} to ${cov.latest}` : "—"}</td>
+                        <td class="inst-actions">
+                          {#if data.hasApiKey && (!job || job.progress.status !== "running")}
+                            <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])}>Latest</button>
+                            <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])}>Previous</button>
+                          {/if}
+                        </td>
                       </tr>
                     {/each}
                   </tbody>
@@ -322,5 +335,6 @@
   .inst-table tr:hover td { background: #161b22; }
   .inst-name { font-weight: 500; }
   .no-data td { color: #484f58; }
+  .inst-actions { display: flex; gap: 4px; justify-content: flex-end; }
   .date { color: #8b949e; font-size: 0.9em; }
 </style>
