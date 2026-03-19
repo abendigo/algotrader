@@ -186,3 +186,27 @@ export function listStrategies(userId: string): StrategyMeta[] {
 
   return results;
 }
+
+/** List shared and builtin strategies (no deduplication against user strategies). */
+export function listSharedStrategies(): StrategyMeta[] {
+  const results: StrategyMeta[] = [];
+  const seen = new Set<string>();
+
+  if (existsSync(SHARED_STRATEGIES_DIR)) {
+    for (const f of readdirSync(SHARED_STRATEGIES_DIR).filter((f) => f.endsWith(".ts"))) {
+      const id = f.replace(".ts", "");
+      results.push(extractMeta(join(SHARED_STRATEGIES_DIR, f), id, "shared"));
+      seen.add(id);
+    }
+  }
+
+  if (existsSync(BUILTIN_STRATEGIES_DIR)) {
+    for (const f of readdirSync(BUILTIN_STRATEGIES_DIR).filter((f) => f.endsWith(".ts"))) {
+      const id = f.replace(".ts", "");
+      if (seen.has(id)) continue;
+      results.push(extractMeta(join(BUILTIN_STRATEGIES_DIR, f), id, "builtin"));
+    }
+  }
+
+  return results;
+}

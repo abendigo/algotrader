@@ -1,13 +1,15 @@
 import { fail } from "@sveltejs/kit";
-import { listAllStrategies } from "$lib/server/strategies.js";
+import { listAllStrategies, listSharedAndBuiltin } from "$lib/server/strategies.js";
 import { copySharedStrategy } from "$lib/server/strategies.js";
 
 export async function load({ locals }) {
   const userId = locals.user?.id ?? "";
-  const all = listAllStrategies(userId);
-  const userIds = new Set(all.filter((s) => s.source === "user").map((s) => s.id));
-  const shared = all.filter((s) => s.source === "shared");
-  const builtin = all.filter((s) => s.source === "builtin");
+  const userStrategies = listAllStrategies(userId);
+  const userIds = new Set(userStrategies.filter((s) => s.source === "user").map((s) => s.id));
+
+  const catalog = listSharedAndBuiltin();
+  const shared = catalog.filter((s) => s.source === "shared");
+  const builtin = catalog.filter((s) => s.source === "builtin");
 
   return {
     shared: shared.map((s) => ({ ...s, alreadyCopied: userIds.has(s.id) })),

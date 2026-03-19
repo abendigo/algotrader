@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, copyFileSync } from "fs";
 import { join, resolve } from "path";
-import { listStrategies, type StrategyMeta, type ConfigFields, type ConfigFieldDef } from "../../../../src/core/strategy-loader.js";
+import { listStrategies, listSharedStrategies as _listShared, type StrategyMeta, type ConfigFields, type ConfigFieldDef } from "../../../../src/core/strategy-loader.js";
 
 export type { StrategyMeta, ConfigFields, ConfigFieldDef };
 
@@ -10,6 +10,11 @@ const BUILTIN_DIR = join(PROJECT_ROOT, "src/strategies");
 
 export function listAllStrategies(userId: string): StrategyMeta[] {
   return listStrategies(userId);
+}
+
+/** List shared/builtin strategies without deduplication against user strategies. */
+export function listSharedAndBuiltin(): StrategyMeta[] {
+  return _listShared();
 }
 
 /** Check if a strategy exists in shared or builtin directories. */
