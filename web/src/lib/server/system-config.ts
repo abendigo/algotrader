@@ -64,8 +64,20 @@ export function getSystemApiKey(): string | null {
   }
 }
 
-export function getSystemAccountId(): string | null {
-  return loadConfig().oandaAccountId ?? null;
+export async function getSystemAccountId(): Promise<string | null> {
+  const config = loadConfig();
+  if (config.oandaAccountId) return config.oandaAccountId;
+
+  // Auto-discover and persist if API key exists but account ID is missing
+  const apiKey = getSystemApiKey();
+  if (!apiKey) return null;
+
+  const accountId = await discoverAccountId(apiKey);
+  if (accountId) {
+    config.oandaAccountId = accountId;
+    saveConfig(config);
+  }
+  return accountId;
 }
 
 /**
@@ -140,7 +152,7 @@ export async function refreshInstrumentCache(
   accountId?: string,
 ): Promise<{ success: boolean; error?: string; count?: number }> {
   const key = apiKey ?? getSystemApiKey();
-  const acctId = accountId ?? getSystemAccountId();
+  const acctId = accountId ?? await getSystemAccountId();
 
   if (!key || !acctId) {
     return { success: false, error: "System API key or account ID not configured" };
