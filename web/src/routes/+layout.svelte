@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { navigating } from "$app/stores";
+
 	declare const __GIT_SHA__: string;
 	let { children, data } = $props();
 	const version = __GIT_SHA__;
@@ -7,6 +9,10 @@
 <svelte:head>
 	<title>Algotrader</title>
 </svelte:head>
+
+{#if $navigating}
+	<div class="nav-progress"></div>
+{/if}
 
 <div class="app">
 	<nav>
@@ -37,6 +43,20 @@
 </div>
 
 <style>
+	.nav-progress {
+		position: fixed;
+		top: 0;
+		left: 0;
+		height: 2px;
+		background: #58a6ff;
+		z-index: 1000;
+		animation: progress 1.5s ease-in-out infinite;
+	}
+	@keyframes progress {
+		0% { width: 0%; }
+		50% { width: 70%; }
+		100% { width: 95%; }
+	}
 	:global(body) {
 		margin: 0;
 		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
