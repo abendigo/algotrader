@@ -42,6 +42,12 @@ export interface TrendFollowConfig {
   stopAtrMult: number;
   trailActivateAtrMult: number;
   trailAtrMult: number;
+  /** How close price must get to fast EMA to count as a pullback (ATR mult, default: 0.5) */
+  pullbackAtrMult: number;
+  /** Rolling window of recent trades per instrument for adaptive filtering (default: 0 = disabled) */
+  adaptiveWindow: number;
+  /** Minimum win rate in the rolling window to keep trading a pair (default: 0.4 = 40%) */
+  adaptiveMinWinRate: number;
   units: number;
   instruments?: readonly string[];
 }
@@ -62,6 +68,9 @@ export const strategyMeta = {
       stopAtrMult: { label: "Stop (ATR mult)", type: "number" as const, default: 2.0, min: 0.5, step: 0.1 },
       trailActivateAtrMult: { label: "Trail activate (ATR mult)", type: "number" as const, default: 1.5, min: 0.5, step: 0.1 },
       trailAtrMult: { label: "Trail distance (ATR mult)", type: "number" as const, default: 2.0, min: 0.5, step: 0.1 },
+      pullbackAtrMult: { label: "Pullback threshold (ATR mult)", type: "number" as const, default: 0.5, min: 0, step: 0.1 },
+      adaptiveWindow: { label: "Adaptive window (trades)", type: "number" as const, default: 0, min: 0, step: 1 },
+      adaptiveMinWinRate: { label: "Min win rate to trade", type: "number" as const, default: 0.4, min: 0, step: 0.05 },
     },
     backtest: {},
     live: {},
@@ -77,6 +86,9 @@ const DEFAULT_CONFIG: TrendFollowConfig = {
   stopAtrMult: 2.0,
   trailActivateAtrMult: 1.5,
   trailAtrMult: 2.0,
+  pullbackAtrMult: 0.5,
+  adaptiveWindow: 0,
+  adaptiveMinWinRate: 0.4,
   units: 100,
 };
 
@@ -225,6 +237,12 @@ class ADX {
   get(): number | null { return this.adxValue; }
 }
 
+interface PendingEntry {
+  side: "buy" | "sell";
+  pulledBack: boolean;
+  pullbackExtreme: number; // lowest point (for buy) or highest point (for sell) during pullback
+}
+
 interface InstrumentState {
   fastEma: EMA;
   slowEma: EMA;
@@ -235,6 +253,7 @@ interface InstrumentState {
   barLow: number;
   barClose: number;
   tickCount: number;
+  pending: PendingEntry | null;
 }
 
 export class TrendFollowStrategy implements Strategy {
@@ -246,6 +265,8 @@ export class TrendFollowStrategy implements Strategy {
   private states = new Map<string, InstrumentState>();
   private positions = new Map<string, OpenPosition>();
   private prices = new Map<string, number>();
+  /** Rolling trade results per instrument: true = win, false = loss */
+  private tradeHistory = new Map<string, boolean[]>();
 
   constructor(config?: Record<string, unknown>) {
     const cleaned: Record<string, unknown> = {};
@@ -271,6 +292,7 @@ export class TrendFollowStrategy implements Strategy {
         barLow: Infinity,
         barClose: 0,
         tickCount: 0,
+        pending: null,
       });
     }
   }
@@ -338,6 +360,10 @@ export class TrendFollowStrategy implements Strategy {
       if (pos.side === "sell" && mid >= pos.stopLoss) stopped = true;
 
       if (stopped) {
+        // Record trade result for adaptive filtering
+        const pnl = pos.side === "buy" ? mid - pos.entryPrice : pos.entryPrice - mid;
+        this.recordTradeResult(tick.instrument, pnl > 0);
+
         await ctx.broker.closePosition(tick.instrument);
         this.positions.delete(tick.instrument);
       }
@@ -351,39 +377,104 @@ export class TrendFollowStrategy implements Strategy {
       return;
     }
 
-    // Check ADX threshold
-    if (adxVal < this.config.adxThreshold) {
-      state.prevFastAboveSlow = fastVal > slowVal;
-      return;
-    }
-
     // Detect EMA crossover
     const fastAboveSlow = fastVal > slowVal;
     const crossed = fastAboveSlow !== state.prevFastAboveSlow;
     state.prevFastAboveSlow = fastAboveSlow;
 
-    if (!crossed) return;
+    // New crossover — set up a pending entry (cancel any existing)
+    if (crossed && adxVal >= this.config.adxThreshold && this.shouldTradePair(tick.instrument)) {
+      const side: "buy" | "sell" = fastAboveSlow ? "buy" : "sell";
+      state.pending = { side, pulledBack: false, pullbackExtreme: mid };
+      return;
+    }
 
-    const side: "buy" | "sell" = fastAboveSlow ? "buy" : "sell";
+    // Cancel pending if ADX drops below threshold
+    if (state.pending && adxVal < this.config.adxThreshold) {
+      state.pending = null;
+      return;
+    }
+
+    // No pending entry — nothing to do
+    if (!state.pending) return;
+
+    const pending = state.pending;
+    const pullbackThreshold = atrVal * this.config.pullbackAtrMult;
+
+    // Phase 1: Wait for pullback toward fast EMA
+    if (!pending.pulledBack) {
+      const distToFastEma = pending.side === "buy"
+        ? mid - fastVal  // for buy, price should come down toward fast EMA
+        : fastVal - mid;  // for sell, price should come up toward fast EMA
+
+      // Track the extreme of the pullback
+      if (pending.side === "buy" && mid < pending.pullbackExtreme) pending.pullbackExtreme = mid;
+      if (pending.side === "sell" && mid > pending.pullbackExtreme) pending.pullbackExtreme = mid;
+
+      // Price is close enough to fast EMA — pullback confirmed
+      if (distToFastEma <= pullbackThreshold) {
+        pending.pulledBack = true;
+        pending.pullbackExtreme = mid;
+      }
+      return;
+    }
+
+    // Phase 2: Pullback happened — wait for price to resume trend direction
+    let resumed = false;
+    if (pending.side === "buy" && mid > pending.pullbackExtreme) {
+      resumed = true;
+    }
+    if (pending.side === "sell" && mid < pending.pullbackExtreme) {
+      resumed = true;
+    }
+
+    // Track extreme while waiting
+    if (pending.side === "buy" && mid < pending.pullbackExtreme) pending.pullbackExtreme = mid;
+    if (pending.side === "sell" && mid > pending.pullbackExtreme) pending.pullbackExtreme = mid;
+
+    if (!resumed) return;
+
+    // Enter the trade
     const stopDist = atrVal * this.config.stopAtrMult;
-    const stopLoss = side === "buy" ? mid - stopDist : mid + stopDist;
+    const stopLoss = pending.side === "buy" ? mid - stopDist : mid + stopDist;
 
     await ctx.broker.submitOrder({
       instrument: tick.instrument,
-      side,
+      side: pending.side,
       type: "market",
       units: this.config.units,
     });
 
     this.positions.set(tick.instrument, {
       instrument: tick.instrument,
-      side,
+      side: pending.side,
       entryPrice: mid,
       stopLoss,
       trailingActive: false,
       peakPrice: mid,
       atrAtEntry: atrVal,
     });
+
+    state.pending = null;
+  }
+
+  private recordTradeResult(instrument: string, win: boolean): void {
+    if (this.config.adaptiveWindow <= 0) return;
+    const history = this.tradeHistory.get(instrument) ?? [];
+    history.push(win);
+    if (history.length > this.config.adaptiveWindow) {
+      history.shift();
+    }
+    this.tradeHistory.set(instrument, history);
+  }
+
+  private shouldTradePair(instrument: string): boolean {
+    if (this.config.adaptiveWindow <= 0) return true; // disabled
+    const history = this.tradeHistory.get(instrument);
+    if (!history || history.length < this.config.adaptiveWindow) return true; // not enough data yet
+    const wins = history.filter(Boolean).length;
+    const winRate = wins / history.length;
+    return winRate >= this.config.adaptiveMinWinRate;
   }
 
   getState(): StrategyStateSnapshot {
