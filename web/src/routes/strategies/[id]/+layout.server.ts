@@ -125,7 +125,7 @@ export async function load({ params, locals }) {
             accountId: sf.accountId,
             config: sf.config ?? {},
             status: sf.status,
-            lastError: sf.lastError ?? sf.error ?? null,
+            lastError: sf.lastError ?? sf.error ?? null, // runner used 'error' historically
             startedAt: sf.startedAt,
             lastHeartbeat: sf.lastHeartbeat,
             trades: matched.length,

@@ -39,7 +39,7 @@ export interface SessionFile {
   status: "starting" | "running" | "stopped" | "error";
   startedAt: string;
   lastHeartbeat: string;
-  error?: string;
+  lastError?: string;
 }
 
 interface LogEntry {
@@ -381,7 +381,7 @@ main().catch((err) => {
     try {
       const session = JSON.parse(readFileSync(sessionFileFlag, "utf-8"));
       session.status = "error";
-      session.error = err instanceof Error ? err.message : String(err);
+      session.lastError = err instanceof Error ? err.message : String(err);
       session.lastHeartbeat = new Date().toISOString();
       writeFileSync(sessionFileFlag, JSON.stringify(session, null, 2));
     } catch { /* ignore */ }
