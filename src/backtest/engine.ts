@@ -32,6 +32,7 @@ export async function runBacktest(
     executionDelay = 0,
     timeVaryingSpread = false,
     slippagePips = 0,
+    accountCurrency = "USD",
   } = config;
 
   // Discover instruments from data directory if not specified
@@ -46,7 +47,7 @@ export async function runBacktest(
     );
   }
 
-  const broker = new BacktestBroker(initialBalance, spread, spreadMultiplier, timeVaryingSpread, slippagePips);
+  const broker = new BacktestBroker(initialBalance, spread, spreadMultiplier, timeVaryingSpread, slippagePips, accountCurrency);
   const ctx = { broker };
 
   // Initialize strategy

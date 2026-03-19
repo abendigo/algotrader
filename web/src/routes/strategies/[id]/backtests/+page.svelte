@@ -146,6 +146,8 @@
 		if (btFromDate) body.fromDate = btFromDate;
 		if (btToDate) body.toDate = btToDate;
 		if (btBalance !== 1000) body.balance = btBalance;
+		const currency = data.accounts?.[0]?.currency;
+		if (currency) body.currency = currency;
 
 		const res = await fetch("/api/backtest/run", {
 			method: "POST",

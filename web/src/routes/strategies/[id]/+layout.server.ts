@@ -43,7 +43,7 @@ export async function load({ params, locals }) {
   }
 
   // Accounts for live trading
-  let accounts: { id: string; alias: string; hedgingEnabled: boolean }[] = [];
+  let accounts: { id: string; alias: string; hedgingEnabled: boolean; currency: string }[] = [];
   if (locals.user.hasApiKey) {
     const apiKey = getApiKey(userId);
     if (apiKey) {
@@ -52,6 +52,7 @@ export async function load({ params, locals }) {
         id: a.id,
         alias: a.alias || a.id,
         hedgingEnabled: a.hedgingEnabled,
+        currency: a.currency,
       }));
     }
   }

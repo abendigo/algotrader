@@ -66,6 +66,7 @@ const unitsFlag = process.argv.find((a) => a.startsWith("--units="))?.split("=")
 const units = unitsFlag ? parseInt(unitsFlag, 10) : Math.round(initialBalance * 0.1);
 const stopFracFlag = process.argv.find((a) => a.startsWith("--stop-frac="))?.split("=")[1];
 const stopRangeFraction = stopFracFlag ? parseFloat(stopFracFlag) : undefined;
+const accountCurrency = process.argv.find((a) => a.startsWith("--currency="))?.split("=")[1] ?? "USD";
 const skipDaysFlag = process.argv.find((a) => a.startsWith("--skip-days="))?.split("=")[1];
 const skipDays = skipDaysFlag ? skipDaysFlag.split(",").map(Number) : undefined;
 const userFlag = process.argv.find((a) => a.startsWith("--user="))?.split("=")[1];
@@ -95,6 +96,7 @@ const backtestConfig: BacktestConfig = {
   slippagePips,
   fromDate,
   toDate,
+  accountCurrency,
 };
 
 async function main() {

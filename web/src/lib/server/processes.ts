@@ -300,6 +300,7 @@ export interface BacktestOptions {
   reward?: number;
   pairs?: string;
   balance?: number;
+  currency?: string;
   strategyConfig?: Record<string, unknown>;
 }
 
@@ -327,6 +328,7 @@ export function startBacktest(
   if (options.reward) args.push(`--reward=${options.reward}`);
   if (options.pairs) args.push(`--pairs=${options.pairs}`);
   if (options.balance) args.push(`--balance=${options.balance}`);
+  if (options.currency) args.push(`--currency=${options.currency}`);
 
   // Forward strategy-specific config fields as CLI flags
   if (options.strategyConfig) {

@@ -38,6 +38,7 @@ export class BacktestBroker implements Broker {
   private spreadMultiplier: number;
   private useTimeVaryingSpread: boolean;
   private slippagePips: number;
+  private accountCurrency: string;
   private pendingEntrySignal?: SignalSnapshot;
   private pendingExitSignal?: SignalSnapshot;
 
@@ -47,12 +48,14 @@ export class BacktestBroker implements Broker {
     spreadMultiplier: number = 1.0,
     useTimeVaryingSpread: boolean = false,
     slippagePips: number = 0,
+    accountCurrency: string = "USD",
   ) {
     this.balance = initialBalance;
     this.spread = spread;
     this.spreadMultiplier = spreadMultiplier;
     this.useTimeVaryingSpread = useTimeVaryingSpread;
     this.slippagePips = slippagePips;
+    this.accountCurrency = accountCurrency;
   }
 
   /** Apply random slippage against the trader (always adverse) */
@@ -275,32 +278,59 @@ export class BacktestBroker implements Broker {
   // --- Internal helpers ---
 
   /**
-   * Convert a P&L amount from the quote currency of an instrument to USD.
+   * Convert a P&L amount from the quote currency of an instrument to the
+   * account currency.
    *
-   * For EUR/USD, GBP/USD, etc. (quote = USD): no conversion needed.
-   * For USD/JPY (quote = JPY): divide by USD/JPY rate.
-   * For EUR/GBP (quote = GBP): multiply by GBP/USD rate.
+   * If quote matches account currency, no conversion needed.
+   * Otherwise, look up a conversion pair from current tick data.
    */
   private convertToAccountCurrency(pnlInQuote: number, instrument: Instrument): number {
     const [, quote] = instrument.split("_");
-    if (quote === "USD") return pnlInQuote;
+    const acct = this.accountCurrency;
+    if (quote === acct) return pnlInQuote;
 
-    // Try USD_{QUOTE} — divide by rate
-    const usdQuoteTick = this.currentTick.get(`USD_${quote}` as Instrument);
-    if (usdQuoteTick) {
-      const rate = (usdQuoteTick.bid + usdQuoteTick.ask) / 2;
+    // Try {ACCT}_{QUOTE} — divide by rate (e.g., account=CAD, quote=JPY → CAD_JPY)
+    const acctQuoteTick = this.currentTick.get(`${acct}_${quote}` as Instrument);
+    if (acctQuoteTick) {
+      const rate = (acctQuoteTick.bid + acctQuoteTick.ask) / 2;
       return rate > 0 ? pnlInQuote / rate : pnlInQuote;
     }
 
-    // Try {QUOTE}_USD — multiply by rate
-    const quoteUsdTick = this.currentTick.get(`${quote}_USD` as Instrument);
-    if (quoteUsdTick) {
-      const rate = (quoteUsdTick.bid + quoteUsdTick.ask) / 2;
+    // Try {QUOTE}_{ACCT} — multiply by rate (e.g., account=USD, quote=GBP → GBP_USD)
+    const quoteAcctTick = this.currentTick.get(`${quote}_${acct}` as Instrument);
+    if (quoteAcctTick) {
+      const rate = (quoteAcctTick.bid + quoteAcctTick.ask) / 2;
       return pnlInQuote * rate;
     }
 
-    // No conversion data available — return raw (better than nothing)
-    return pnlInQuote;
+    // Fallback: convert quote → USD → account currency (two-hop)
+    let pnlInUsd = pnlInQuote;
+    if (quote !== "USD") {
+      const usdQuoteTick = this.currentTick.get(`USD_${quote}` as Instrument);
+      if (usdQuoteTick) {
+        pnlInUsd = pnlInQuote / ((usdQuoteTick.bid + usdQuoteTick.ask) / 2);
+      } else {
+        const quoteUsdTick = this.currentTick.get(`${quote}_USD` as Instrument);
+        if (quoteUsdTick) {
+          pnlInUsd = pnlInQuote * ((quoteUsdTick.bid + quoteUsdTick.ask) / 2);
+        } else {
+          return pnlInQuote; // no conversion data
+        }
+      }
+    }
+    if (acct === "USD") return pnlInUsd;
+
+    // USD → account currency
+    const acctUsdTick = this.currentTick.get(`${acct}_USD` as Instrument);
+    if (acctUsdTick) {
+      return pnlInUsd / ((acctUsdTick.bid + acctUsdTick.ask) / 2);
+    }
+    const usdAcctTick = this.currentTick.get(`USD_${acct}` as Instrument);
+    if (usdAcctTick) {
+      return pnlInUsd * ((usdAcctTick.bid + usdAcctTick.ask) / 2);
+    }
+
+    return pnlInUsd; // best effort
   }
 
   private computeUnrealizedPnL(pos: InternalPosition): number {

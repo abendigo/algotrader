@@ -22,6 +22,8 @@ export interface BacktestConfig {
   timeVaryingSpread?: boolean;
   /** Random slippage in pips added to each fill (default: 0). Simulates execution quality. */
   slippagePips?: number;
+  /** Account currency for P&L conversion (default: "USD") */
+  accountCurrency?: string;
 }
 
 /** Signal snapshot captured at entry or exit */
