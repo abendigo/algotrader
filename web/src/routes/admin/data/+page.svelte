@@ -8,6 +8,7 @@
     id: string;
     granularity: string;
     direction: string;
+    instruments?: string[];
     progress: {
       status: "running" | "done" | "error";
       currentInstrument?: string;
@@ -24,21 +25,28 @@
   let expandedGrans = $state<Set<string>>(new Set());
   let expandedGroups = $state<Set<string>>(new Set());
 
-  // Poll collection jobs
+  // Fetch jobs on mount, then poll while any are running
+  async function fetchJobs() {
+    try {
+      const res = await fetch("/api/admin/collect");
+      if (res.ok) {
+        const d = await res.json();
+        collectJobs = d.jobs;
+      }
+    } catch { /* ignore */ }
+  }
+
+  import { onMount } from "svelte";
+  onMount(() => { fetchJobs(); });
+
   $effect(() => {
     const hasRunning = collectJobs.some((j) => j.progress.status === "running");
     if (!hasRunning) return;
     const interval = setInterval(async () => {
-      try {
-        const res = await fetch("/api/admin/collect");
-        if (res.ok) {
-          const d = await res.json();
-          collectJobs = d.jobs;
-          if (!d.jobs.some((j: CollectJob) => j.progress.status === "running")) {
-            await invalidateAll();
-          }
-        }
-      } catch { /* ignore */ }
+      await fetchJobs();
+      if (!collectJobs.some((j) => j.progress.status === "running")) {
+        await invalidateAll();
+      }
     }, 2000);
     return () => clearInterval(interval);
   });
@@ -61,9 +69,18 @@
     expandedGroups = new Set(expandedGroups);
   }
 
-  function getJobForKey(granularity: string, groupType?: string): CollectJob | undefined {
+  function getJobForGran(granularity: string): CollectJob | undefined {
     return collectJobs.find((j) => j.granularity === granularity && j.progress.status === "running")
       ?? collectJobs.findLast((j: CollectJob) => j.granularity === granularity);
+  }
+
+  function isGroupBusy(granularity: string, instNames: string[]): boolean {
+    return collectJobs.some((j) => {
+      if (j.granularity !== granularity || j.progress.status !== "running") return false;
+      if (!j.instruments) return true; // no instrument info — assume overlap
+      const jobSet = new Set(j.instruments);
+      return instNames.some((i) => jobSet.has(i));
+    });
   }
 
   async function collectGroup(granularity: string, direction: "latest" | "previous", instruments: string[]) {
@@ -128,7 +145,7 @@
 
   {#each data.granularities as gran}
     {@const hasData = Object.keys(gran.coverage).length > 0}
-    {@const job = getJobForKey(gran.name)}
+    {@const job = getJobForGran(gran.name)}
     <div class="gran-section" class:has-data={hasData}>
       <button class="gran-header" onclick={() => toggleGran(gran.name)}>
         <span class="gran-name">{gran.name}</span>
@@ -164,7 +181,7 @@
                   <span class="expand-icon">{expandedGroups.has(groupKey) ? "−" : "+"}</span>
                 </button>
                 <div class="group-actions">
-                  {#if data.hasApiKey && (!job || job.progress.status !== "running")}
+                  {#if data.hasApiKey && !isGroupBusy(gran.name, instNames)}
                     <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames)}>
                       Fetch Latest
                     </button>
@@ -192,7 +209,7 @@
                           <td>{cov?.days ?? "—"}</td>
                           <td class="date">{cov ? `${cov.earliest} to ${cov.latest}` : "—"}</td>
                           <td class="inst-actions">
-                            {#if data.hasApiKey && (!job || job.progress.status !== "running")}
+                            {#if data.hasApiKey && !isGroupBusy(gran.name, [inst.name])}
                               <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])}>Latest</button>
                               <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])}>Previous</button>
                             {/if}
@@ -219,7 +236,7 @@
                 <span class="expand-icon">{expandedGroups.has(groupKey) ? "−" : "+"}</span>
               </button>
               <div class="group-actions">
-                {#if data.hasApiKey && (!job || job.progress.status !== "running")}
+                {#if data.hasApiKey && !isGroupBusy(gran.name, instNames)}
                   <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames)}>
                     Fetch Latest
                   </button>
@@ -241,7 +258,7 @@
                         <td>{cov?.days ?? "—"}</td>
                         <td class="date">{cov ? `${cov.earliest} to ${cov.latest}` : "—"}</td>
                         <td class="inst-actions">
-                          {#if data.hasApiKey && (!job || job.progress.status !== "running")}
+                          {#if data.hasApiKey && !isGroupBusy(gran.name, [inst.name])}
                             <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])}>Latest</button>
                             <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])}>Previous</button>
                           {/if}

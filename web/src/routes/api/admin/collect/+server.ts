@@ -63,7 +63,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   // Create job and start collection in background
-  const job = createJob(granularity, direction);
+  const job = createJob(granularity, direction, instruments);
 
   // Fire and forget — the job runs asynchronously
   collect({
