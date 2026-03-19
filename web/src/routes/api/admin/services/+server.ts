@@ -3,6 +3,7 @@ import { readdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import type { RequestHandler } from "./$types.js";
 import { ServiceClient, readServiceDiscovery } from "../../../../../../src/live/service-client.js";
+import { isDockerMode, listLiveContainers, getContainerHostname, getLivePort } from "$lib/server/docker.js";
 
 import { DATA_DIR } from "$lib/server/paths.js";
 
@@ -45,7 +46,38 @@ export const GET: RequestHandler = async ({ locals }) => {
 
   const services: ServiceInfo[] = [];
 
-  // Scan for discovery files
+  if (isDockerMode()) {
+    // Docker mode: discover via Docker API
+    const containers = await listLiveContainers();
+    for (const container of containers) {
+      const info: ServiceInfo = {
+        userId: container.userId,
+        email: emailMap.get(container.userId) ?? container.userId,
+        port: getLivePort(),
+        pid: 0,
+        startedAt: "",
+      };
+
+      try {
+        const client = new ServiceClient(getLivePort(), getContainerHostname(container.userId));
+        const status = await client.getStatus();
+        info.uptime = status.uptime;
+        info.streamConnected = status.streamConnected;
+        info.sessionCount = status.sessions;
+        info.ticksReceived = status.ticksReceived;
+        info.memoryUsage = status.memoryUsage;
+        info.email = status.email ?? info.email;
+        info.startedAt = new Date(Date.now() - (status.uptime ?? 0)).toISOString();
+      } catch {
+        info.error = "Service unresponsive";
+      }
+
+      services.push(info);
+    }
+    return json(services);
+  }
+
+  // Local mode: scan for discovery files
   for (const userId of readdirSync(usersDir)) {
     const discovery = readServiceDiscovery(userId);
     if (!discovery) continue;

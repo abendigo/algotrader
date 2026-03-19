@@ -3,6 +3,7 @@ import { readFileSync, existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { getDataSummary } from "$lib/server/data.js";
 import { ServiceClient, readServiceDiscovery } from "../../../../src/live/service-client.js";
+import { isDockerMode, listLiveContainers, getContainerHostname, getLivePort } from "$lib/server/docker.js";
 import { hasSystemApiKey, setSystemApiKey } from "$lib/server/system-config.js";
 
 import { DATA_DIR } from "$lib/server/paths.js";
@@ -70,13 +71,41 @@ interface LiveServiceInfo {
 }
 
 async function discoverServices(): Promise<LiveServiceInfo[]> {
-  const usersDir = join(DATA_DIR, "users");
-  if (!existsSync(usersDir)) return [];
-
   const emailMap = new Map<string, string>();
   for (const u of loadUserSummaries()) emailMap.set(u.id, u.email);
 
   const services: LiveServiceInfo[] = [];
+
+  if (isDockerMode()) {
+    const containers = await listLiveContainers();
+    for (const container of containers) {
+      const info: LiveServiceInfo = {
+        userId: container.userId,
+        email: emailMap.get(container.userId) ?? container.userId,
+        port: getLivePort(),
+      };
+
+      try {
+        const client = new ServiceClient(getLivePort(), getContainerHostname(container.userId));
+        const status = await client.getStatus();
+        info.uptime = status.uptime;
+        info.streamConnected = status.streamConnected;
+        info.sessionCount = status.sessions;
+        info.ticksReceived = status.ticksReceived;
+        info.memoryUsage = status.memoryUsage;
+      } catch {
+        info.error = "Unresponsive";
+      }
+
+      services.push(info);
+    }
+    return services;
+  }
+
+  // Local mode: scan discovery files
+  const usersDir = join(DATA_DIR, "users");
+  if (!existsSync(usersDir)) return [];
+
   for (const userId of readdirSync(usersDir)) {
     const discovery = readServiceDiscovery(userId);
     if (!discovery) continue;
