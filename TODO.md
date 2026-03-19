@@ -21,6 +21,20 @@
 - [ ] Input validation on backtest parameters (negative balance, extreme values) — adopt zod schemas
 - [ ] Add Content Security Policy headers
 
+## Real-time Updates (SSE)
+- [ ] Replace polling with Server-Sent Events for live session monitoring
+- [ ] SSE for backtest progress updates
+- [ ] SSE for data collection job progress
+- [ ] Shared event bus on server side for broadcasting updates to connected clients
+
+## UI/UX
+- [x] Light/dark mode with system preference support
+- [x] Web app redesign — strategy-centric layout with tabs (Editor, Backtests, Paper, Live)
+- [ ] Extract reusable components: Button, Modal, Alert, Badge, StatusDot, ConfigFields, DataTable
+- [ ] Extract global CSS utility classes (.pos, .neg, .muted, base table/form/button styles)
+- [ ] Extract utilities: api fetch wrapper, formatDate, formatPnl
+- [ ] Create STYLE.md documenting CSS variables, spacing, typography, component usage
+
 ## Testing
 - [ ] Automated tests for live service failure scenarios (error isolation, idle auto-exit, session file recovery, stream reconnect, stop targeting, log tagging)
 - [ ] Refactor SessionManager to accept injectable factories for broker/strategy creation (needed for testability)
@@ -34,6 +48,7 @@
 - [ ] Add zod validation to service HTTP API (`src/live/service-api.ts`)
 
 ## Live Trading Service
+- [x] RecordingBroker — uses actual OANDA fill prices and realized P&L instead of position diffing
 - [ ] Test backfill recovery mode end-to-end (restart a strategy with indicator buffers, verify warmup from candles)
 - [ ] Test checkpoint recovery mode end-to-end
 - [ ] Test custom recovery mode end-to-end
@@ -69,9 +84,6 @@ If backtests start competing for CPU with the web server, consider these upgrade
   - Let users pick model (Sonnet vs Opus) for cost control
   - Conversation persistence
   - Budget/rate-limit backtests per user (server compute cost)
-
-## UI/UX
-- [ ] Light mode theme — extract all hardcoded colors into CSS custom properties, define light/dark theme sets, add toggle in nav. Touches every `.svelte` file.
 
 ## Code Quality
 - [ ] Convert all tabs to spaces (web/ uses tabs, src/ uses spaces — standardize on spaces)
