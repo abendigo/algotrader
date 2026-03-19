@@ -62,6 +62,7 @@ interface LiveSession {
 }
 
 interface TradeRecord {
+  strategy: string;
   instrument: string;
   side: "buy" | "sell";
   units: number;
@@ -546,6 +547,7 @@ export class SessionManager {
           data: { instrument: inst, side, units: Math.abs(aft), bid: tick.bid, ask: tick.ask },
         });
         session.openTrades.set(inst, {
+          strategy: session.strategyName,
           instrument: inst,
           side: side as "buy" | "sell",
           units: Math.abs(aft),

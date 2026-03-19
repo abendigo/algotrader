@@ -54,6 +54,7 @@ function getLiveDir(userId: string, accountId: string): string {
 }
 
 interface TradeRecord {
+  strategy: string;
   instrument: string;
   side: "buy" | "sell";
   units: number;
@@ -225,6 +226,7 @@ class LiveRunner {
             });
             // Track open trade for P&L on exit
             this.openTrades.set(inst, {
+              strategy: this.strategy.name,
               instrument: inst,
               side: side as "buy" | "sell",
               units: Math.abs(after),
