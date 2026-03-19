@@ -136,7 +136,7 @@
 				href="/strategies/{data.strategy.id}/{tab.path}"
 				class="tab"
 				class:active={activeTab === tab.path}
-			>{tab.label}{#if tab.path === "backtests" && data.reports.length > 0} <span class="tab-count">{data.reports.length}</span>{/if}</a>
+			>{tab.label}{#if tab.path === "backtests" && data.reports.length > 0} <span class="tab-count">{data.reports.length}</span>{/if}{#if tab.path === "paper" && data.pastSessions.length > 0} <span class="tab-count">{data.pastSessions.length}</span>{/if}</a>
 		{/each}
 	</div>
 
