@@ -18,7 +18,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.algotrader.rule=Host(`algotrader.markos.games`)
       - traefik.http.routers.algotrader.entrypoints=websecure
-      - traefik.http.routers.algotrader.tls.certresolver=letsencrypt
+      - traefik.http.routers.algotrader.tls.certresolver=leresolver
       - traefik.http.services.algotrader.loadbalancer.server.port=3000
       - traefik.docker.network=traefik_default
     networks:
