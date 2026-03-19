@@ -9,7 +9,7 @@ import type {
   Position,
   Tick,
 } from "../core/types.js";
-import type { SignalSnapshot, Trade } from "./types.js";
+import type { SignalSnapshot, Trade, PnlConversion } from "./types.js";
 import { getSpreadMultiplier } from "./spread-model.js";
 
 interface InternalPosition {
@@ -279,58 +279,71 @@ export class BacktestBroker implements Broker {
 
   /**
    * Convert a P&L amount from the quote currency of an instrument to the
-   * account currency.
-   *
-   * If quote matches account currency, no conversion needed.
-   * Otherwise, look up a conversion pair from current tick data.
+   * account currency. Returns the converted value and an audit trail.
    */
-  private convertToAccountCurrency(pnlInQuote: number, instrument: Instrument): number {
+  private convertToAccountCurrency(pnlInQuote: number, instrument: Instrument): { pnl: number; conversion: PnlConversion } {
     const [, quote] = instrument.split("_");
     const acct = this.accountCurrency;
-    if (quote === acct) return pnlInQuote;
 
-    // Try {ACCT}_{QUOTE} — divide by rate (e.g., account=CAD, quote=JPY → CAD_JPY)
+    const makeResult = (pnl: number, rate: number, pair: string): { pnl: number; conversion: PnlConversion } => ({
+      pnl,
+      conversion: { pnlQuote: pnlInQuote, quoteCurrency: quote, accountCurrency: acct, conversionRate: rate, conversionPair: pair },
+    });
+
+    if (quote === acct) return makeResult(pnlInQuote, 1, "none");
+
+    // Try {ACCT}_{QUOTE} — divide by rate
     const acctQuoteTick = this.currentTick.get(`${acct}_${quote}` as Instrument);
     if (acctQuoteTick) {
       const rate = (acctQuoteTick.bid + acctQuoteTick.ask) / 2;
-      return rate > 0 ? pnlInQuote / rate : pnlInQuote;
+      if (rate > 0) return makeResult(pnlInQuote / rate, 1 / rate, `${acct}_${quote}`);
     }
 
-    // Try {QUOTE}_{ACCT} — multiply by rate (e.g., account=USD, quote=GBP → GBP_USD)
+    // Try {QUOTE}_{ACCT} — multiply by rate
     const quoteAcctTick = this.currentTick.get(`${quote}_${acct}` as Instrument);
     if (quoteAcctTick) {
       const rate = (quoteAcctTick.bid + quoteAcctTick.ask) / 2;
-      return pnlInQuote * rate;
+      return makeResult(pnlInQuote * rate, rate, `${quote}_${acct}`);
     }
 
-    // Fallback: convert quote → USD → account currency (two-hop)
+    // Fallback: two-hop via USD
     let pnlInUsd = pnlInQuote;
+    let hop1Pair = "none";
+    let hop1Rate = 1;
     if (quote !== "USD") {
       const usdQuoteTick = this.currentTick.get(`USD_${quote}` as Instrument);
       if (usdQuoteTick) {
-        pnlInUsd = pnlInQuote / ((usdQuoteTick.bid + usdQuoteTick.ask) / 2);
+        hop1Rate = 1 / ((usdQuoteTick.bid + usdQuoteTick.ask) / 2);
+        pnlInUsd = pnlInQuote * hop1Rate;
+        hop1Pair = `USD_${quote}`;
       } else {
         const quoteUsdTick = this.currentTick.get(`${quote}_USD` as Instrument);
         if (quoteUsdTick) {
-          pnlInUsd = pnlInQuote * ((quoteUsdTick.bid + quoteUsdTick.ask) / 2);
+          hop1Rate = (quoteUsdTick.bid + quoteUsdTick.ask) / 2;
+          pnlInUsd = pnlInQuote * hop1Rate;
+          hop1Pair = `${quote}_USD`;
         } else {
-          return pnlInQuote; // no conversion data
+          return makeResult(pnlInQuote, 1, "no-conversion-data");
         }
       }
     }
-    if (acct === "USD") return pnlInUsd;
+    if (acct === "USD") return makeResult(pnlInUsd, hop1Rate, hop1Pair);
 
     // USD → account currency
     const acctUsdTick = this.currentTick.get(`${acct}_USD` as Instrument);
     if (acctUsdTick) {
-      return pnlInUsd / ((acctUsdTick.bid + acctUsdTick.ask) / 2);
+      const hop2Rate = 1 / ((acctUsdTick.bid + acctUsdTick.ask) / 2);
+      const totalRate = hop1Rate * hop2Rate;
+      return makeResult(pnlInQuote * totalRate, totalRate, `${hop1Pair}+${acct}_USD`);
     }
     const usdAcctTick = this.currentTick.get(`USD_${acct}` as Instrument);
     if (usdAcctTick) {
-      return pnlInUsd * ((usdAcctTick.bid + usdAcctTick.ask) / 2);
+      const hop2Rate = (usdAcctTick.bid + usdAcctTick.ask) / 2;
+      const totalRate = hop1Rate * hop2Rate;
+      return makeResult(pnlInQuote * totalRate, totalRate, `${hop1Pair}+USD_${acct}`);
     }
 
-    return pnlInUsd; // best effort
+    return makeResult(pnlInUsd, hop1Rate, `${hop1Pair}+no-acct-pair`);
   }
 
   private computeUnrealizedPnL(pos: InternalPosition): number {
@@ -340,7 +353,7 @@ export class BacktestBroker implements Broker {
     const diff =
       pos.side === "buy" ? mid - pos.averagePrice : pos.averagePrice - mid;
     const pnlInQuote = diff * pos.units;
-    return this.convertToAccountCurrency(pnlInQuote, pos.instrument);
+    return this.convertToAccountCurrency(pnlInQuote, pos.instrument).pnl;
   }
 
   private closePositionInternal(
@@ -353,7 +366,7 @@ export class BacktestBroker implements Broker {
         ? exitPrice - pos.averagePrice
         : pos.averagePrice - exitPrice;
     const pnlInQuote = diff * pos.units;
-    const pnl = this.convertToAccountCurrency(pnlInQuote, pos.instrument);
+    const { pnl, conversion } = this.convertToAccountCurrency(pnlInQuote, pos.instrument);
 
     const exitSignal = this.pendingExitSignal;
     this.pendingExitSignal = undefined;
@@ -368,6 +381,7 @@ export class BacktestBroker implements Broker {
       entryTime: pos.entryTime,
       exitTime,
       pnl,
+      conversion,
       entrySignal: pos.entrySignal,
       exitSignal,
     });

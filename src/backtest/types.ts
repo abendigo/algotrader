@@ -40,6 +40,20 @@ export interface SignalSnapshot {
   legBPrice: number;
 }
 
+/** Currency conversion details for P&L audit trail */
+export interface PnlConversion {
+  /** P&L in the quote currency of the traded pair */
+  pnlQuote: number;
+  /** Quote currency of the pair (e.g., "USD", "JPY") */
+  quoteCurrency: string;
+  /** Account currency (e.g., "CAD") */
+  accountCurrency: string;
+  /** Conversion rate used (quote → account) */
+  conversionRate: number;
+  /** Which pair provided the conversion rate (e.g., "USD_CAD") */
+  conversionPair: string;
+}
+
 /** A single completed trade (open → close) */
 export interface Trade {
   instrument: Instrument;
@@ -49,7 +63,10 @@ export interface Trade {
   exitPrice: number;
   entryTime: number;
   exitTime: number;
+  /** P&L in account currency */
   pnl: number;
+  /** Conversion details for audit trail */
+  conversion?: PnlConversion;
   entrySignal?: SignalSnapshot;
   exitSignal?: SignalSnapshot;
 }
