@@ -193,7 +193,7 @@
 		</div>
 		<form method="POST" action="?/setApiKey" use:enhance={() => { return async ({ update }) => { await update(); await invalidateAll(); }; }}>
 			<div class="api-key-form">
-				<input type="password" name="apiKey" placeholder="OANDA API key" class="input-key" />
+				<input type="text" name="apiKey" autocomplete="off" data-1p-ignore placeholder="OANDA API key" class="input-key" />
 				<button type="submit" class="btn-sm btn-promote">Save</button>
 			</div>
 		</form>
