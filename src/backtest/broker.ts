@@ -274,13 +274,43 @@ export class BacktestBroker implements Broker {
 
   // --- Internal helpers ---
 
+  /**
+   * Convert a P&L amount from the quote currency of an instrument to USD.
+   *
+   * For EUR/USD, GBP/USD, etc. (quote = USD): no conversion needed.
+   * For USD/JPY (quote = JPY): divide by USD/JPY rate.
+   * For EUR/GBP (quote = GBP): multiply by GBP/USD rate.
+   */
+  private convertToAccountCurrency(pnlInQuote: number, instrument: Instrument): number {
+    const [, quote] = instrument.split("_");
+    if (quote === "USD") return pnlInQuote;
+
+    // Try USD_{QUOTE} — divide by rate
+    const usdQuoteTick = this.currentTick.get(`USD_${quote}` as Instrument);
+    if (usdQuoteTick) {
+      const rate = (usdQuoteTick.bid + usdQuoteTick.ask) / 2;
+      return rate > 0 ? pnlInQuote / rate : pnlInQuote;
+    }
+
+    // Try {QUOTE}_USD — multiply by rate
+    const quoteUsdTick = this.currentTick.get(`${quote}_USD` as Instrument);
+    if (quoteUsdTick) {
+      const rate = (quoteUsdTick.bid + quoteUsdTick.ask) / 2;
+      return pnlInQuote * rate;
+    }
+
+    // No conversion data available — return raw (better than nothing)
+    return pnlInQuote;
+  }
+
   private computeUnrealizedPnL(pos: InternalPosition): number {
     const tick = this.currentTick.get(pos.instrument);
     if (!tick) return 0;
     const mid = (tick.bid + tick.ask) / 2;
     const diff =
       pos.side === "buy" ? mid - pos.averagePrice : pos.averagePrice - mid;
-    return diff * pos.units;
+    const pnlInQuote = diff * pos.units;
+    return this.convertToAccountCurrency(pnlInQuote, pos.instrument);
   }
 
   private closePositionInternal(
@@ -292,7 +322,8 @@ export class BacktestBroker implements Broker {
       pos.side === "buy"
         ? exitPrice - pos.averagePrice
         : pos.averagePrice - exitPrice;
-    const pnl = diff * pos.units;
+    const pnlInQuote = diff * pos.units;
+    const pnl = this.convertToAccountCurrency(pnlInQuote, pos.instrument);
 
     const exitSignal = this.pendingExitSignal;
     this.pendingExitSignal = undefined;
