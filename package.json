@@ -13,7 +13,8 @@
     "regenerate": "tsx src/backtest/regenerate.ts",
     "live": "tsx src/live/runner.ts",
     "live-service": "tsx src/live/service.ts",
-    "gen-docs": "tsx src/tools/gen-strategy-docs.ts"
+    "gen-docs": "tsx src/tools/gen-strategy-docs.ts",
+    "gen-editor-types": "tsx src/tools/gen-editor-types.ts"
   },
   "keywords": [],
   "author": "",

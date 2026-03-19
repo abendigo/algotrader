@@ -238,6 +238,7 @@
 					<th>Name</th>
 					<th>File</th>
 					<th>Source</th>
+					<th></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -251,6 +252,9 @@
 							{:else}
 								<span class="source private">Private</span>
 							{/if}
+						</td>
+						<td>
+							<a href="/strategies/edit/{strategySlug(strategy.filename)}" class="btn-edit">Edit</a>
 						</td>
 					</tr>
 				{/each}
@@ -512,6 +516,16 @@ tttttt{/if}
 	.mono { font-family: monospace; font-size: 0.85em; color: #8b949e; }
 	.source { color: #8b949e; font-size: 0.85em; }
 	.source.private { color: #58a6ff; }
+	.btn-edit {
+		padding: 4px 10px;
+		background: #21262d;
+		color: #c9d1d9;
+		border: 1px solid #30363d;
+		border-radius: 4px;
+		font-size: 0.82em;
+		text-decoration: none;
+	}
+	.btn-edit:hover { background: #30363d; }
 	h2 {
 		font-size: 1.1em;
 		color: #8b949e;
