@@ -118,7 +118,7 @@
 
 	// Filter past sessions to exclude ones currently active
 	const activeSessionIds = $derived(new Set(sessions.map((s) => s.sessionId)));
-	const filteredPastSessions = $derived(filteredPastSessions.filter((ps) => !activeSessionIds.has(ps.sessionId)));
+	const filteredPastSessions = $derived(data.pastSessions.filter((ps: any) => !activeSessionIds.has(ps.sessionId)));
 
 	async function stopSession(sessionId: string) {
 		stoppingSessions.add(sessionId);
