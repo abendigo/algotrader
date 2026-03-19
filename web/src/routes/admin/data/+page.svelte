@@ -279,8 +279,8 @@
                           <td class="date">{cov ? `${cov.earliest} to ${cov.latest}` : "—"}</td>
                           <td class="inst-actions">
                             {#if data.hasApiKey && !isGroupBusy(gran.name, [inst.name])}
-                              <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])}>Latest</button>
-                              <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])}>Previous</button>
+                              <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])} title={fetchRange(gran.name, "latest", [inst.name])}>Latest <span class="range-hint">{fetchRange(gran.name, "latest", [inst.name])}</span></button>
+                              <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])} title={fetchRange(gran.name, "previous", [inst.name])}>Previous <span class="range-hint">{fetchRange(gran.name, "previous", [inst.name])}</span></button>
                             {/if}
                           </td>
                         </tr>
