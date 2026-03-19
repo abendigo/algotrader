@@ -36,6 +36,9 @@ If backtests start competing for CPU with the web server, consider these upgrade
 - **Option B:** Spin up a container per backtest — clean isolation, but container startup overhead for short runs
 - **Option C:** Dedicated backtest worker container — always-running, accepts jobs via HTTP, can queue/parallelize. Best for multi-user scenarios.
 
+## Code Quality
+- [ ] Convert all tabs to spaces (web/ uses tabs, src/ uses spaces — standardize on spaces)
+
 ## Strategy Docs
 - [ ] Run `npm run gen-docs` as a pre-build step (or git pre-commit hook) so docs never go stale
 - [ ] Add more example strategies to `src/docs/examples/` for the docs page
