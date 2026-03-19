@@ -1,5 +1,6 @@
 <script lang="ts">
 	import MonacoEditor from "$lib/components/MonacoEditor.svelte";
+	import { page } from "$app/stores";
 
 	let { data } = $props();
 	let source = $state(data.source);
@@ -12,7 +13,7 @@
 		saving = true;
 		message = "";
 		try {
-			const res = await fetch(`/api/strategies/${data.strategyId}`, {
+			const res = await fetch(`/api/strategies/${data.strategy.id}`, {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ source }),
@@ -27,7 +28,7 @@
 				message = result.error ?? "Save failed";
 				messageType = "error";
 			}
-		} catch (e) {
+		} catch {
 			message = "Network error";
 			messageType = "error";
 		}
@@ -41,12 +42,9 @@
 
 <svelte:window onbeforeunload={handleBeforeUnload} />
 
-<div class="editor-page">
-	<div class="toolbar">
-		<a href="/strategies/mine" class="back-link">My Strategies</a>
-		<span class="separator">/</span>
-		<h1>{data.strategyId}.ts</h1>
-		<div class="toolbar-right">
+<div class="editor-tab">
+	{#if data.strategy.isUserOwned}
+		<div class="editor-toolbar">
 			{#if message}
 				<span class="message" class:error={messageType === "error"}>{message}</span>
 			{/if}
@@ -54,57 +52,37 @@
 				{saving ? "Saving..." : "Save"}
 			</button>
 		</div>
-	</div>
-	<div class="editor-wrapper">
-		<MonacoEditor
-			bind:value={source}
-			types={data.types}
-			onchange={() => dirty = true}
-			onsave={save}
-		/>
-	</div>
+		<div class="editor-wrapper">
+			<MonacoEditor
+				bind:value={source}
+				types={data.types}
+				onchange={() => dirty = true}
+				onsave={save}
+			/>
+		</div>
+	{:else}
+		<div class="readonly-notice">
+			<p>This is a {data.strategy.source} strategy. Copy it to your collection to edit.</p>
+		</div>
+	{/if}
 </div>
 
 <style>
-	.editor-page {
+	.editor-tab {
 		display: flex;
 		flex-direction: column;
-		height: calc(100vh - 60px);
+		height: calc(100vh - 200px);
 	}
-	.toolbar {
+	.editor-toolbar {
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		padding: 10px 16px;
-		border-bottom: 1px solid #21262d;
+		justify-content: flex-end;
+		gap: 10px;
+		margin-bottom: 8px;
 		flex-shrink: 0;
 	}
-	.back-link {
-		color: #58a6ff;
-		font-size: 0.9em;
-	}
-	.separator {
-		color: #484f58;
-	}
-	h1 {
-		font-size: 1em;
-		font-weight: 600;
-		margin: 0;
-		font-family: monospace;
-	}
-	.toolbar-right {
-		margin-left: auto;
-		display: flex;
-		align-items: center;
-		gap: 10px;
-	}
-	.message {
-		font-size: 0.85em;
-		color: #3fb950;
-	}
-	.message.error {
-		color: #f85149;
-	}
+	.message { font-size: 0.85em; color: #3fb950; }
+	.message.error { color: #f85149; }
 	.btn-save {
 		padding: 6px 16px;
 		background: #238636;
@@ -116,10 +94,7 @@
 		font-size: 0.85em;
 	}
 	.btn-save:hover { background: #2ea043; }
-	.btn-save:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
+	.btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
 	.editor-wrapper {
 		flex: 1;
 		min-height: 0;
@@ -127,7 +102,13 @@
 	.editor-wrapper :global(.editor-container) {
 		height: 100%;
 		min-height: 0;
-		border: none;
-		border-radius: 0;
+	}
+	.readonly-notice {
+		background: #161b22;
+		border: 1px solid #21262d;
+		border-radius: 8px;
+		padding: 40px;
+		text-align: center;
+		color: #8b949e;
 	}
 </style>

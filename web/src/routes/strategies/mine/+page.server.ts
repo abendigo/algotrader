@@ -1,53 +1,5 @@
-import { listAllStrategies, hasSharedOrBuiltin } from "$lib/server/strategies.js";
-import { getApiKey, discoverAccounts } from "$lib/server/auth.js";
-import { getDataSummary } from "$lib/server/data.js";
-import { statSync } from "fs";
-import { join } from "path";
-import { DATA_DIR } from "$lib/server/paths.js";
+import { redirect } from "@sveltejs/kit";
 
-export async function load({ locals }) {
-  const userId = locals.user?.id ?? "";
-  let accounts: { id: string; alias: string; hedgingEnabled: boolean }[] = [];
-
-  if (locals.user?.hasApiKey) {
-    const apiKey = getApiKey(locals.user.id);
-    if (apiKey) {
-      const result = await discoverAccounts(apiKey);
-      accounts = result.accounts.map((a) => ({
-        id: a.id,
-        alias: a.alias || a.id,
-        hedgingEnabled: a.hedgingEnabled,
-      }));
-    }
-  }
-
-  const dataSummary = getDataSummary();
-  const availableGranularities = dataSummary.brokers.flatMap((b) =>
-    b.granularities.map((g) => ({ name: g.name, from: g.dateRange.from, to: g.dateRange.to }))
-  );
-
-  const allStrategies = listAllStrategies(userId);
-  const userStrategies = allStrategies.filter((s) => s.source === "user");
-
-  // Check filesystem directly — listStrategies deduplicates, so shared/builtin
-  // entries are hidden when a user version exists
-  const userDir = join(DATA_DIR, "users", userId, "strategies");
-  const userStrategiesWithMeta = userStrategies.map((s) => {
-    let modifiedAt: string | null = null;
-    let fileSize: number | null = null;
-    try {
-      const stat = statSync(join(userDir, `${s.id}.ts`));
-      modifiedAt = stat.mtime.toISOString();
-      fileSize = stat.size;
-    } catch { /* ignore */ }
-    return { ...s, revertable: hasSharedOrBuiltin(s.id), modifiedAt, fileSize };
-  });
-
-  return {
-    strategies: allStrategies,
-    userStrategies: userStrategiesWithMeta,
-    accounts,
-    availableGranularities,
-    isAdmin: locals.user?.role === "admin",
-  };
+export function load() {
+  throw redirect(301, "/strategies");
 }

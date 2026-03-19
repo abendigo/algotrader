@@ -14,9 +14,8 @@
 			<a href="/" class="logo">Algotrader</a><span class="version">{version}</span>
 			<div class="links">
 				{#if data.user}
-					<a href="/dashboard">Dashboard</a>
-					<a href="/live">Live</a>
 					<a href="/strategies">Strategies</a>
+					<a href="/live">Live</a>
 					<a href="/backtests">Backtests</a>
 					<a href="/docs/strategies">Docs</a>
 					{#if data.user.role === "admin"}

@@ -1,7 +1,5 @@
-import { getDataSummary } from '$lib/server/data.js';
+import { redirect } from "@sveltejs/kit";
 
 export function load() {
-	return {
-		data: getDataSummary(),
-	};
+  throw redirect(301, "/strategies");
 }

@@ -233,7 +233,7 @@
 		<section>
 			<div class="runner-status">
 				<span class="runner-dot"></span>
-				No active strategy sessions — start one from the <a href="/strategies/mine">Strategies</a> page
+				No active strategy sessions — start one from the <a href="/strategies">Strategies</a> page
 			</div>
 		</section>
 	{/if}

@@ -1,32 +1,5 @@
-import { fail } from "@sveltejs/kit";
-import { listAllStrategies, listSharedAndBuiltin } from "$lib/server/strategies.js";
-import { copySharedStrategy } from "$lib/server/strategies.js";
+import { redirect } from "@sveltejs/kit";
 
-export async function load({ locals }) {
-  const userId = locals.user?.id ?? "";
-  const userStrategies = listAllStrategies(userId);
-  const userIds = new Set(userStrategies.filter((s) => s.source === "user").map((s) => s.id));
-
-  const catalog = listSharedAndBuiltin();
-  const shared = catalog.filter((s) => s.source === "shared");
-  const builtin = catalog.filter((s) => s.source === "builtin");
-
-  return {
-    shared: shared.map((s) => ({ ...s, alreadyCopied: userIds.has(s.id) })),
-    builtin: builtin.map((s) => ({ ...s, alreadyCopied: userIds.has(s.id) })),
-  };
+export function load() {
+  throw redirect(301, "/strategies");
 }
-
-export const actions = {
-  copy: async ({ request, locals }) => {
-    if (!locals.user) return fail(401);
-    const formData = await request.formData();
-    const strategyId = formData.get("strategyId")?.toString() ?? "";
-
-    const result = copySharedStrategy(locals.user.id, strategyId);
-    if (!result.success) {
-      return fail(400, { error: result.error });
-    }
-    return { success: true, message: `Strategy copied to your collection` };
-  },
-};

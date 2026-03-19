@@ -30,7 +30,7 @@
 <h1>Backtests</h1>
 
 {#if data.reports.length === 0}
-	<p class="muted">No reports found. Run a backtest from the <a href="/strategies/mine">Strategies</a> page.</p>
+	<p class="muted">No reports found. Run a backtest from the <a href="/strategies">Strategies</a> page.</p>
 {:else}
 	<table>
 		<thead>
