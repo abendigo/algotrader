@@ -292,9 +292,6 @@
 	.price {
 		font-variant-numeric: tabular-nums;
 	}
-	.pos { color: var(--success); }
-	.neg { color: var(--danger); }
-	.muted { color: var(--text-secondary); }
 	.badge {
 		display: inline-block;
 		padding: 1px 6px;

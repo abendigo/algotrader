@@ -207,10 +207,10 @@
   <h1>Historical Data</h1>
 
   {#if form?.success}
-    <div class="success">{form.message}</div>
+    <div class="msg-success">{form.message}</div>
   {/if}
   {#if form?.error}
-    <div class="error">{form.error}</div>
+    <div class="msg-error">{form.error}</div>
   {/if}
 
   <div class="info-bar">
@@ -421,14 +421,7 @@
     font-size: 1.4em;
     margin-bottom: 16px;
   }
-  .success {
-    background: var(--success-bg); color: var(--success);
-    padding: 8px 12px; border-radius: 4px; font-size: 0.85em; margin-bottom: 16px;
-  }
-  .error {
-    background: var(--danger-bg); color: var(--danger);
-    padding: 8px 12px; border-radius: 4px; font-size: 0.85em; margin-bottom: 16px;
-  }
+  :global(.msg-success), :global(.msg-error) { margin-bottom: 16px; }
   .warn { color: var(--warning); font-size: 0.85em; }
   .info-bar {
     background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px;

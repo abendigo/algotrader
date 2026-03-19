@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import { connectSSE } from "$lib/sse.js";
+	import { formatDate, formatDuration, formatPnl } from "$lib/utils.js";
+	import Modal from "$lib/components/Modal.svelte";
 
 	let { data } = $props();
 
@@ -144,10 +146,10 @@
 
 <div class="live-tab">
 	{#if actionMessage}
-		<div class="success">{actionMessage}</div>
+		<div class="msg-success">{actionMessage}</div>
 	{/if}
 	{#if actionError}
-		<div class="error">{actionError}</div>
+		<div class="msg-error">{actionError}</div>
 	{/if}
 
 	<section>
@@ -245,11 +247,11 @@
 									{ps.status}
 								</span>
 							</td>
-							<td>{started.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
-							<td class="muted">{durMin < 60 ? `${durMin}m` : `${Math.floor(durMin / 60)}h ${durMin % 60}m`}</td>
+							<td>{formatDate(ps.startedAt)}</td>
+							<td class="muted">{formatDuration(durMs)}</td>
 							<td>{ps.trades}</td>
 							<td>{ps.winners}W / {ps.losers}L</td>
-							<td class:pos={ps.totalPnl > 0} class:neg={ps.totalPnl < 0}>{ps.totalPnl >= 0 ? "+" : ""}{ps.totalPnl.toFixed(2)}</td>
+							<td class:pos={ps.totalPnl > 0} class:neg={ps.totalPnl < 0}>{formatPnl(ps.totalPnl)}</td>
 							<td class="report-links" onclick={(e) => e.stopPropagation()}>
 								<button class="btn-link" onclick={() => rerunSession(ps)}>Rerun</button>
 								{#if ps.trades > 0}
@@ -270,7 +272,7 @@
 												<span class="dl">Account</span><span class="dv">{ps.accountId}</span>
 												<span class="dl">Started</span><span class="dv">{started.toISOString().slice(0, 19).replace("T", " ")}</span>
 												<span class="dl">Ended</span><span class="dv">{last.toISOString().slice(0, 19).replace("T", " ")}</span>
-												<span class="dl">Duration</span><span class="dv">{durMin < 60 ? `${durMin}m` : `${Math.floor(durMin / 60)}h ${durMin % 60}m`}</span>
+												<span class="dl">Duration</span><span class="dv">{formatDuration(durMs)}</span>
 												{#if ps.lastError}
 													<span class="dl">Error</span><span class="dv error-text">{ps.lastError}</span>
 												{/if}
@@ -293,7 +295,7 @@
 												<span class="dl">Trades</span><span class="dv">{ps.trades}</span>
 												<span class="dl">Winners</span><span class="dv pos">{ps.winners}</span>
 												<span class="dl">Losers</span><span class="dv neg">{ps.losers}</span>
-												<span class="dl">P&L</span><span class="dv" class:pos={ps.totalPnl > 0} class:neg={ps.totalPnl < 0}>{ps.totalPnl >= 0 ? "+" : ""}{ps.totalPnl.toFixed(2)}</span>
+												<span class="dl">P&L</span><span class="dv" class:pos={ps.totalPnl > 0} class:neg={ps.totalPnl < 0}>{formatPnl(ps.totalPnl)}</span>
 											</div>
 										</div>
 									</div>
@@ -306,36 +308,26 @@
 		</section>
 	{/if}
 
-	{#if deleteTarget}
-		<div class="modal-backdrop" role="none" onclick={() => deleteTarget = null}>
-			<div class="modal" role="none" onclick={(e) => e.stopPropagation()}>
-				<h3>Delete session?</h3>
-				<p class="modal-warning">This will remove the session record. Trade data in trades.jsonl is preserved.</p>
-				<div class="modal-actions">
-					<button class="btn-action" onclick={() => deleteTarget = null}>Cancel</button>
-					<button class="btn-primary btn-danger" onclick={deleteSession}>Delete</button>
-				</div>
-			</div>
+	<Modal show={!!deleteTarget} title="Delete session?" onclose={() => deleteTarget = null}>
+		<p class="modal-warning">This will remove the session record. Trade data in trades.jsonl is preserved.</p>
+		<div class="modal-actions">
+			<button class="btn-action" onclick={() => deleteTarget = null}>Cancel</button>
+			<button class="btn-primary btn-danger" onclick={deleteSession}>Delete</button>
 		</div>
-	{/if}
+	</Modal>
 </div>
 
 <style>
 	h2 { font-size: 1em; color: var(--text-secondary); border-bottom: 1px solid var(--border); padding-bottom: 6px; margin: 0 0 12px; }
 	section { margin-bottom: 24px; }
-	.success { background: var(--success-bg); color: var(--success); padding: 8px 12px; border-radius: 4px; font-size: 0.85em; margin-bottom: 12px; }
-	.error { background: var(--danger-bg); color: var(--danger); padding: 8px 12px; border-radius: 4px; font-size: 0.85em; margin-bottom: 12px; }
 	.hint { color: var(--text-secondary); font-size: 0.85em; }
 	.action-row { display: flex; gap: 8px; align-items: center; }
-	select, input { padding: 6px 10px; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 4px; color: var(--text-primary); font-size: 0.85em; }
-	select:focus, input:focus { outline: none; border-color: var(--accent); }
 	.btn-primary { padding: 6px 16px; background: var(--btn-primary-bg); color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 0.85em; }
 	.btn-primary:hover { background: var(--btn-primary-hover); }
 	.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 	.strategy-options { display: flex; gap: 12px; align-items: flex-end; margin-top: 10px; }
 	.strategy-options label span { display: block; font-size: 0.82em; color: var(--text-secondary); margin-bottom: 4px; }
 	.strategy-options input { width: 100%; box-sizing: border-box; }
-	.muted { color: var(--text-secondary); }
 	.session-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 6px; padding: 12px 16px; margin-bottom: 8px; }
 	.session-header { display: flex; align-items: center; gap: 10px; font-size: 0.9em; }
 	.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-secondary); flex-shrink: 0; }
@@ -354,8 +346,6 @@
 	.status-badge.running { background: var(--badge-buy-bg); color: var(--accent); }
 	.status-badge.stopped { background: var(--bg-tertiary); color: var(--text-secondary); }
 	.status-badge.error { background: var(--danger-bg); color: var(--danger); }
-	.pos { color: var(--success); }
-	.neg { color: var(--danger); }
 	.summary-row { cursor: pointer; }
 	.summary-row:hover td { background: var(--bg-hover); }
 	.chevron { color: var(--text-secondary); width: 16px; font-size: 0.8em; }
@@ -377,9 +367,6 @@
 	.btn-primary { padding: 6px 16px; background: var(--btn-primary-bg); color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 0.85em; }
 	.btn-primary.btn-danger { background: var(--danger); }
 	.btn-primary.btn-danger:hover { background: var(--danger); }
-	.modal-backdrop { position: fixed; inset: 0; background: var(--modal-backdrop); display: flex; align-items: center; justify-content: center; z-index: 100; }
-	.modal { background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: 8px; padding: 24px; min-width: 340px; max-width: 440px; }
-	.modal h3 { margin: 0 0 12px; font-size: 1em; }
 	.modal-warning { color: var(--text-secondary); font-size: 0.85em; margin: 8px 0; }
 	.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 </style>

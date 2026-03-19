@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { page } from "$app/stores";
 	import { invalidateAll } from "$app/navigation";
+	import { formatDate, formatFileSize } from "$lib/utils.js";
+	import Modal from "$lib/components/Modal.svelte";
 
 	let { data, children } = $props();
 
@@ -102,9 +104,9 @@
 			<h1>{data.strategy.name}</h1>
 			{#if data.strategy.fileSize != null}
 				<span class="file-meta">
-					{data.strategy.fileSize < 1024 ? `${data.strategy.fileSize} B` : `${(data.strategy.fileSize / 1024).toFixed(1)} KB`}
+					{formatFileSize(data.strategy.fileSize)}
 					{#if data.strategy.modifiedAt}
-						· {new Date(data.strategy.modifiedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+						· {formatDate(data.strategy.modifiedAt)}
 					{/if}
 				</span>
 			{/if}
@@ -124,10 +126,10 @@
 	</div>
 
 	{#if actionMessage}
-		<div class="success">{actionMessage}</div>
+		<div class="msg-success">{actionMessage}</div>
 	{/if}
 	{#if actionError}
-		<div class="error">{actionError}</div>
+		<div class="msg-error">{actionError}</div>
 	{/if}
 
 	<div class="tab-bar">
@@ -144,48 +146,33 @@
 		{@render children()}
 	</div>
 
-	{#if forkTarget}
-		<div class="modal-backdrop" role="none" onclick={() => forkTarget = false}>
-			<div class="modal" role="none" onclick={(e) => e.stopPropagation()}>
-				<h3>Fork {data.strategy.id}.ts</h3>
-				<label>
-					<span>New strategy name</span>
-					<input type="text" bind:value={forkName} placeholder="my-strategy-v2"
-						onkeydown={(e) => { if (e.key === "Enter") forkStrategy(); }} />
-				</label>
-				<div class="modal-actions">
-					<button class="btn-action" onclick={() => forkTarget = false}>Cancel</button>
-					<button class="btn-primary" onclick={forkStrategy} disabled={!forkName}>Fork</button>
-				</div>
-			</div>
+	<Modal show={!!forkTarget} title="Fork {data.strategy.id}.ts" onclose={() => forkTarget = false}>
+		<label>
+			<span>New strategy name</span>
+			<input type="text" bind:value={forkName} placeholder="my-strategy-v2"
+				onkeydown={(e) => { if (e.key === "Enter") forkStrategy(); }} />
+		</label>
+		<div class="modal-actions">
+			<button class="btn-action" onclick={() => forkTarget = false}>Cancel</button>
+			<button class="btn-primary" onclick={forkStrategy} disabled={!forkName}>Fork</button>
 		</div>
-	{/if}
+	</Modal>
 
-	{#if showDelete}
-		<div class="modal-backdrop" role="none" onclick={() => showDelete = false}>
-			<div class="modal" role="none" onclick={(e) => e.stopPropagation()}>
-				<h3>Delete {data.strategy.id}.ts?</h3>
-				<p class="modal-warning">This cannot be undone.</p>
-				<div class="modal-actions">
-					<button class="btn-action" onclick={() => showDelete = false}>Cancel</button>
-					<button class="btn-primary btn-danger" onclick={deleteStrategy}>Delete</button>
-				</div>
-			</div>
+	<Modal show={showDelete} title="Delete {data.strategy.id}.ts?" onclose={() => showDelete = false}>
+		<p class="modal-warning">This cannot be undone.</p>
+		<div class="modal-actions">
+			<button class="btn-action" onclick={() => showDelete = false}>Cancel</button>
+			<button class="btn-primary btn-danger" onclick={deleteStrategy}>Delete</button>
 		</div>
-	{/if}
+	</Modal>
 
-	{#if showRevert}
-		<div class="modal-backdrop" role="none" onclick={() => showRevert = false}>
-			<div class="modal" role="none" onclick={(e) => e.stopPropagation()}>
-				<h3>Revert {data.strategy.id}.ts?</h3>
-				<p class="modal-warning">This will overwrite your version with the original.</p>
-				<div class="modal-actions">
-					<button class="btn-action" onclick={() => showRevert = false}>Cancel</button>
-					<button class="btn-primary btn-warn" onclick={revertStrategy}>Revert</button>
-				</div>
-			</div>
+	<Modal show={showRevert} title="Revert {data.strategy.id}.ts?" onclose={() => showRevert = false}>
+		<p class="modal-warning">This will overwrite your version with the original.</p>
+		<div class="modal-actions">
+			<button class="btn-action" onclick={() => showRevert = false}>Cancel</button>
+			<button class="btn-primary btn-warn" onclick={revertStrategy}>Revert</button>
 		</div>
-	{/if}
+	</Modal>
 </div>
 
 <style>
@@ -242,14 +229,7 @@
 	.btn-primary.btn-danger:hover { background: var(--danger); }
 	.btn-primary.btn-warn { background: var(--warning); }
 	.btn-primary.btn-warn:hover { background: var(--warning); }
-	.success {
-		background: var(--success-bg); color: var(--success);
-		padding: 8px 12px; border-radius: 4px; font-size: 0.85em; margin-bottom: 8px;
-	}
-	.error {
-		background: var(--danger-bg); color: var(--danger);
-		padding: 8px 12px; border-radius: 4px; font-size: 0.85em; margin-bottom: 8px;
-	}
+	:global(.msg-success), :global(.msg-error) { margin-bottom: 8px; }
 	.tab-bar {
 		display: flex;
 		gap: 0;
@@ -282,21 +262,10 @@
 		min-height: 0;
 		padding-top: 16px;
 	}
-	.modal-backdrop {
-		position: fixed; inset: 0; background: var(--modal-backdrop);
-		display: flex; align-items: center; justify-content: center; z-index: 100;
+	label span { display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px; }
+	label input[type="text"] {
+		width: 100%; padding: 8px 10px; font-size: 0.9em; box-sizing: border-box;
 	}
-	.modal {
-		background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: 8px;
-		padding: 24px; min-width: 340px; max-width: 440px;
-	}
-	.modal h3 { margin: 0 0 12px; font-size: 1em; }
-	.modal label span { display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px; }
-	.modal input[type="text"] {
-		width: 100%; padding: 8px 10px; background: var(--input-bg); border: 1px solid var(--input-border);
-		border-radius: 4px; color: var(--text-primary); font-size: 0.9em; box-sizing: border-box;
-	}
-	.modal input:focus { outline: none; border-color: var(--accent); }
 	.modal-warning { color: var(--text-secondary); font-size: 0.85em; margin: 8px 0; }
 	.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 </style>

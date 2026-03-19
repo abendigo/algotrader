@@ -47,10 +47,10 @@
 	<h1>Admin</h1>
 
 	{#if form?.success}
-		<div class="success">{form.message}</div>
+		<div class="msg-success">{form.message}</div>
 	{/if}
 	{#if form?.error}
-		<div class="error">{form.error}</div>
+		<div class="msg-error">{form.error}</div>
 	{/if}
 
 	<section>
@@ -217,22 +217,7 @@
 		padding-bottom: 6px;
 		margin: 28px 0 12px;
 	}
-	.success {
-		background: var(--success-bg);
-		color: var(--success);
-		padding: 8px 12px;
-		border-radius: 4px;
-		font-size: 0.85em;
-		margin-bottom: 16px;
-	}
-	.error {
-		background: var(--danger-bg);
-		color: var(--danger);
-		padding: 8px 12px;
-		border-radius: 4px;
-		font-size: 0.85em;
-		margin-bottom: 16px;
-	}
+	:global(.msg-success), :global(.msg-error) { margin-bottom: 16px; }
 	table {
 		width: 100%;
 		border-collapse: collapse;
@@ -330,5 +315,4 @@
 		font-size: 0.85em;
 		font-family: monospace;
 	}
-	.input-key:focus { outline: none; border-color: var(--accent); }
 </style>

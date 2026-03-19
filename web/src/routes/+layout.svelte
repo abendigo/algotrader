@@ -342,4 +342,48 @@
 		margin: 0 auto;
 		padding: 24px;
 	}
+
+	/* Utility classes */
+	:global(.pos) { color: var(--success); }
+	:global(.neg) { color: var(--danger); }
+	:global(.muted) { color: var(--text-secondary); }
+	:global(.mono) { font-family: monospace; }
+
+	/* Base form styles */
+	:global(select),
+	:global(input[type="text"]),
+	:global(input[type="number"]),
+	:global(input[type="date"]),
+	:global(input[type="password"]),
+	:global(input[type="email"]) {
+		padding: 6px 10px;
+		background: var(--input-bg);
+		border: 1px solid var(--input-border);
+		border-radius: 4px;
+		color: var(--text-primary);
+		font-size: 0.85em;
+	}
+	:global(select:focus),
+	:global(input:focus) {
+		outline: none;
+		border-color: var(--accent);
+	}
+
+	/* Success/error message blocks */
+	:global(.msg-success) {
+		background: var(--success-bg);
+		color: var(--success);
+		padding: 8px 12px;
+		border-radius: 4px;
+		font-size: 0.85em;
+		margin-bottom: 12px;
+	}
+	:global(.msg-error) {
+		background: var(--danger-bg);
+		color: var(--danger);
+		padding: 8px 12px;
+		border-radius: 4px;
+		font-size: 0.85em;
+		margin-bottom: 12px;
+	}
 </style>

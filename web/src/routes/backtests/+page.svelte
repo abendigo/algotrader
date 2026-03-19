@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from "$app/navigation";
+	import { formatPct } from "$lib/utils.js";
+	import Modal from "$lib/components/Modal.svelte";
 
 	let { data } = $props();
 	let expanded = $state<Set<string>>(new Set());
@@ -34,9 +36,6 @@
 		return `${sm}x`;
 	}
 
-	function fmtPct(n: number): string {
-		return (n >= 0 ? "+" : "") + n.toFixed(1) + "%";
-	}
 </script>
 
 <h1>Backtests</h1>
@@ -71,11 +70,11 @@
 					<td>{report.granularity}</td>
 					<td class="preset">{presetLabel(report.backtestConfig)}</td>
 					{#if m}
-						<td class:pos={m.returnPct > 0} class:neg={m.returnPct < 0}>{fmtPct(m.returnPct)}</td>
+						<td class:pos={m.returnPct > 0} class:neg={m.returnPct < 0}>{formatPct(m.returnPct)}</td>
 						<td class:pos={m.profitFactor > 1} class:neg={m.profitFactor < 1}>{m.profitFactor.toFixed(2)}</td>
 						<td>{(m.winRate * 100).toFixed(0)}%</td>
 						<td>{m.totalTrades}</td>
-						<td class="neg">{fmtPct(-m.maxDrawdownPct)}</td>
+						<td class="neg">{formatPct(-m.maxDrawdownPct)}</td>
 						<td>{m.sharpeRatio.toFixed(2)}</td>
 					{:else}
 						<td colspan="6" class="muted">—</td>
@@ -140,18 +139,13 @@
 	</table>
 {/if}
 
-{#if deleteTarget}
-	<div class="modal-backdrop" role="none" onclick={() => deleteTarget = null}>
-		<div class="modal" role="none" onclick={(e) => e.stopPropagation()}>
-			<h3>Delete backtest result?</h3>
-			<p class="modal-warning">This will remove the JSON, HTML, and CSV files. This cannot be undone.</p>
-			<div class="modal-actions">
-				<button class="btn-action" onclick={() => deleteTarget = null}>Cancel</button>
-				<button class="btn-primary btn-danger" onclick={deleteReport}>Delete</button>
-			</div>
-		</div>
+<Modal show={!!deleteTarget} title="Delete backtest result?" onclose={() => deleteTarget = null}>
+	<p class="modal-warning">This will remove the JSON, HTML, and CSV files. This cannot be undone.</p>
+	<div class="modal-actions">
+		<button class="btn-action" onclick={() => deleteTarget = null}>Cancel</button>
+		<button class="btn-primary btn-danger" onclick={deleteReport}>Delete</button>
 	</div>
-{/if}
+</Modal>
 
 <style>
 	h1 {
@@ -181,9 +175,6 @@
 	.name { font-weight: 600; }
 	.preset { color: var(--text-secondary); }
 	.when { color: var(--text-secondary); font-size: 0.9em; }
-	.pos { color: var(--success); }
-	.neg { color: var(--danger); }
-	.muted { color: var(--text-secondary); }
 	.report-links { display: flex; gap: 8px; }
 	.report-links a { font-size: 0.85em; color: var(--accent); }
 	.btn-link { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 0.85em; padding: 0; }
@@ -195,9 +186,6 @@
 	.btn-primary { padding: 6px 16px; background: var(--btn-primary-bg); color: #fff; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 0.85em; }
 	.btn-primary.btn-danger { background: var(--danger); }
 	.btn-primary.btn-danger:hover { background: var(--danger); }
-	.modal-backdrop { position: fixed; inset: 0; background: var(--modal-backdrop); display: flex; align-items: center; justify-content: center; z-index: 100; }
-	.modal { background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: 8px; padding: 24px; min-width: 340px; max-width: 440px; }
-	.modal h3 { margin: 0 0 12px; font-size: 1em; }
 	.modal-warning { color: var(--text-secondary); font-size: 0.85em; margin: 8px 0; }
 	.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 .detail-row td {

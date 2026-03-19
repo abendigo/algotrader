@@ -17,10 +17,10 @@
 	<h1>Profile</h1>
 
 	{#if form?.success}
-		<div class="success">{form.message}</div>
+		<div class="msg-success">{form.message}</div>
 	{/if}
 	{#if form?.error}
-		<div class="error">{form.error}</div>
+		<div class="msg-error">{form.error}</div>
 	{/if}
 
 	<section>
@@ -115,22 +115,7 @@
 		font-size: 0.9em;
 	}
 	.info-row .label { color: var(--text-secondary); }
-	.success {
-		background: var(--success-bg);
-		color: var(--success);
-		padding: 8px 12px;
-		border-radius: 4px;
-		font-size: 0.85em;
-		margin-bottom: 16px;
-	}
-	.error {
-		background: var(--danger-bg);
-		color: var(--danger);
-		padding: 8px 12px;
-		border-radius: 4px;
-		font-size: 0.85em;
-		margin-bottom: 16px;
-	}
+	:global(.msg-success), :global(.msg-error) { margin-bottom: 16px; }
 	.key-status {
 		display: flex;
 		align-items: center;
@@ -155,10 +140,6 @@
 		box-sizing: border-box;
 	}
 	.input-row input { flex: 1; }
-	input:focus {
-		outline: none;
-		border-color: var(--accent);
-	}
 	.badge {
 		display: inline-block;
 		padding: 1px 6px;

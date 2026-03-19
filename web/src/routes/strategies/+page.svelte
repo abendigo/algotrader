@@ -1,23 +1,20 @@
 <script lang="ts">
 	import { enhance } from "$app/forms";
 	import { invalidateAll } from "$app/navigation";
+	import { formatPct, formatFileSize, formatDate } from "$lib/utils.js";
 
 	let { data, form } = $props();
 	let copyingId = $state<string | null>(null);
-
-	function fmtPct(n: number): string {
-		return (n >= 0 ? "+" : "") + n.toFixed(1) + "%";
-	}
 </script>
 
 <div class="catalog">
 	<h1>Strategies</h1>
 
 	{#if form?.success}
-		<div class="success">{form.message}</div>
+		<div class="msg-success">{form.message}</div>
 	{/if}
 	{#if form?.error}
-		<div class="error">{form.error}</div>
+		<div class="msg-error">{form.error}</div>
 	{/if}
 
 	{#if data.userStrategies.length > 0}
@@ -30,7 +27,7 @@
 							<span class="card-name">{strategy.name}</span>
 							{#if strategy.bestReturn != null}
 								<span class="card-stat" class:pos={strategy.bestReturn > 0} class:neg={strategy.bestReturn < 0}>
-									{fmtPct(strategy.bestReturn)} <span class="stat-label">realistic</span>
+									{formatPct(strategy.bestReturn)} <span class="stat-label">realistic</span>
 								</span>
 							{/if}
 						</div>
@@ -40,10 +37,10 @@
 						<div class="card-meta">
 							<span class="mono">{strategy.id}.ts</span>
 							{#if strategy.fileSize != null}
-								<span>{strategy.fileSize < 1024 ? `${strategy.fileSize} B` : `${(strategy.fileSize / 1024).toFixed(1)} KB`}</span>
+								<span>{formatFileSize(strategy.fileSize)}</span>
 							{/if}
 							{#if strategy.modifiedAt}
-								<span>{new Date(strategy.modifiedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+								<span>{formatDate(strategy.modifiedAt)}</span>
 							{/if}
 							{#if strategy.backtestCount > 0}
 								<span>{strategy.backtestCount} backtest{strategy.backtestCount !== 1 ? "s" : ""}</span>
@@ -95,8 +92,7 @@
 	h2 { font-size: 1.1em; color: var(--text-secondary); border-bottom: 1px solid var(--border); padding-bottom: 6px; margin: 24px 0 12px; }
 	h2:first-of-type { margin-top: 0; }
 	.intro { color: var(--text-secondary); font-size: 0.9em; margin-bottom: 12px; }
-	.success { background: var(--success-bg); color: var(--success); padding: 8px 12px; border-radius: 4px; font-size: 0.85em; margin-bottom: 16px; }
-	.error { background: var(--danger-bg); color: var(--danger); padding: 8px 12px; border-radius: 4px; font-size: 0.85em; margin-bottom: 16px; }
+	:global(.msg-success), :global(.msg-error) { margin-bottom: 16px; }
 
 	.strategy-grid {
 		display: grid;
@@ -132,8 +128,6 @@
 	.card-stat { font-size: 0.9em; font-weight: 600; }
 	.stat-label { font-weight: 400; color: var(--text-muted); font-size: 0.8em; }
 	.card-source { font-size: 0.75em; color: var(--text-secondary); text-transform: uppercase; }
-	.pos { color: var(--success); }
-	.neg { color: var(--danger); }
 	.card-desc {
 		color: var(--text-secondary);
 		font-size: 0.85em;
@@ -151,7 +145,6 @@
 		font-size: 0.8em;
 		color: var(--text-muted);
 	}
-	.mono { font-family: monospace; }
 	.card-actions {
 		margin-top: 8px;
 	}

@@ -9,7 +9,7 @@
 		<h1>Log In</h1>
 
 		{#if form?.error}
-			<div class="error">{form.error}</div>
+			<div class="msg-error">{form.error}</div>
 		{/if}
 
 		<form method="POST" use:enhance>
@@ -49,14 +49,7 @@
 		margin-bottom: 20px;
 		text-align: center;
 	}
-	.error {
-		background: var(--danger-bg);
-		color: var(--danger);
-		padding: 8px 12px;
-		border-radius: 4px;
-		font-size: 0.85em;
-		margin-bottom: 16px;
-	}
+	:global(.msg-error) { margin-bottom: 16px; }
 	label {
 		display: block;
 		margin-bottom: 16px;
@@ -76,10 +69,6 @@
 		color: var(--text-primary);
 		font-size: 0.95em;
 		box-sizing: border-box;
-	}
-	input:focus {
-		outline: none;
-		border-color: var(--accent);
 	}
 	button {
 		width: 100%;
