@@ -10,4 +10,4 @@ reports/
 logs/
 .env
 *.local
-.git/
+# .git/ intentionally NOT ignored — needed for GIT_SHA in build

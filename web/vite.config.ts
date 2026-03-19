@@ -3,11 +3,11 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import { execSync } from 'child_process';
 
-const gitSha = process.env.GIT_SHA ?? (() => {
+const gitSha = (() => {
 	try {
 		return execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
 	} catch {
-		return 'unknown';
+		return 'dev';
 	}
 })();
 

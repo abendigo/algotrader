@@ -2,7 +2,8 @@
 
 # --- Stage 1: Install dependencies and build ---
 FROM node:22-slim AS build
-ARG GIT_SHA
+
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -20,8 +21,7 @@ COPY . .
 # Generate strategy docs from TypeScript interfaces
 RUN npx tsx src/tools/gen-strategy-docs.ts
 
-# Build web app (GIT_SHA is baked into the UI)
-ENV GIT_SHA=$GIT_SHA
+# Build web app (git SHA is read by vite.config.ts at build time)
 RUN cd web && npm run build
 
 # --- Stage 2: Production runtime ---
