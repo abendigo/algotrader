@@ -85,11 +85,13 @@
   }
 
   async function collectGroup(granularity: string, direction: "latest" | "previous", instruments: string[], label?: string) {
+    const range = fetchRange(granularity, direction, instruments);
+    const fullLabel = label ? `${label} (${range})` : (instruments.length === 1 ? `${instruments[0]} (${range})` : `${instruments.length} instruments (${range})`);
     try {
       const res = await fetch("/api/admin/collect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ granularity, direction, instruments, label: label ?? (instruments.length === 1 ? instruments[0] : `${instruments.length} instruments`) }),
+        body: JSON.stringify({ granularity, direction, instruments, label: fullLabel }),
       });
       if (res.ok) {
         const jobsRes = await fetch("/api/admin/collect");
@@ -106,6 +108,51 @@
       if (coverage[inst]) collected++;
     }
     return { total: instruments.length, collected };
+  }
+
+  const GRAN_SECONDS: Record<string, number> = {
+    S5: 5, S10: 10, S15: 15, S30: 30,
+    M1: 60, M2: 120, M4: 240, M5: 300,
+    M10: 600, M15: 900, M30: 1800,
+    H1: 3600, H2: 7200, H3: 10800, H4: 14400,
+    H6: 21600, H8: 28800, H12: 43200,
+    D: 86400, W: 604800,
+  };
+
+  function getBatchDays(gran: string): number {
+    const s = GRAN_SECONDS[gran] ?? 60;
+    if (s <= 60) return 7;
+    if (s <= 1800) return 30;
+    if (s <= 43200) return 90;
+    return 365;
+  }
+
+  function fetchRange(granularity: string, direction: "latest" | "previous", instruments: string[]): string {
+    const coverage = data.granularities.find((g: any) => g.name === granularity)?.coverage ?? {};
+    let earliest: string | null = null;
+    let latest: string | null = null;
+    for (const inst of instruments) {
+      const cov = coverage[inst];
+      if (!cov) continue;
+      if (!earliest || cov.earliest < earliest) earliest = cov.earliest;
+      if (!latest || cov.latest > latest) latest = cov.latest;
+    }
+    const batchDays = getBatchDays(granularity);
+    const ms = batchDays * 86_400_000;
+    let from: Date, to: Date;
+    if (direction === "latest") {
+      to = new Date();
+      from = latest ? new Date(new Date(latest).getTime() - 86_400_000) : new Date(Date.now() - ms);
+    } else {
+      if (earliest) {
+        to = new Date(earliest);
+        from = new Date(to.getTime() - ms);
+      } else {
+        to = new Date();
+        from = new Date(Date.now() - ms);
+      }
+    }
+    return `${from.toISOString().slice(0, 10)} → ${to.toISOString().slice(0, 10)}`;
   }
 
   const groupOrder = ["MAJORS", "CROSSES", "EXOTICS", "METAL", "CFD"];
@@ -202,11 +249,13 @@
                 </button>
                 <div class="group-actions">
                   {#if data.hasApiKey && !isGroupBusy(gran.name, instNames)}
-                    <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames, groupLabels[groupType] ?? groupType)}>
-                      Fetch Latest
+                    <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames, groupLabels[groupType] ?? groupType)}
+                      title={fetchRange(gran.name, "latest", instNames)}>
+                      Fetch Latest <span class="range-hint">{fetchRange(gran.name, "latest", instNames)}</span>
                     </button>
-                    <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", instNames, groupLabels[groupType] ?? groupType)}>
-                      Fetch Previous
+                    <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", instNames, groupLabels[groupType] ?? groupType)}
+                      title={fetchRange(gran.name, "previous", instNames)}>
+                      Fetch Previous <span class="range-hint">{fetchRange(gran.name, "previous", instNames)}</span>
                     </button>
                   {/if}
                 </div>
@@ -257,11 +306,13 @@
               </button>
               <div class="group-actions">
                 {#if data.hasApiKey && !isGroupBusy(gran.name, instNames)}
-                  <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames, groupType)}>
-                    Fetch Latest
+                  <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", instNames, groupType)}
+                    title={fetchRange(gran.name, "latest", instNames)}>
+                    Fetch Latest <span class="range-hint">{fetchRange(gran.name, "latest", instNames)}</span>
                   </button>
-                  <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", instNames, groupType)}>
-                    Fetch Previous
+                  <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", instNames, groupType)}
+                    title={fetchRange(gran.name, "previous", instNames)}>
+                    Fetch Previous <span class="range-hint">{fetchRange(gran.name, "previous", instNames)}</span>
                   </button>
                 {/if}
               </div>
@@ -342,6 +393,7 @@
   .btn-refresh:hover { border-color: #58a6ff; }
   .btn-collect { background: transparent; color: #58a6ff; border-color: #30363d; white-space: nowrap; }
   .btn-collect:hover { border-color: #58a6ff; }
+  .range-hint { color: #484f58; font-size: 0.9em; margin-left: 4px; }
   .gran-section {
     border: 1px solid #21262d; border-radius: 6px; margin-bottom: 8px;
     overflow: hidden;
