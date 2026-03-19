@@ -240,6 +240,7 @@
               {@const stats = groupStats(gran.name, instNames)}
               {@const groupKey = `${gran.name}-${groupType}`}
               <div class="group-row">
+                <div class="group-top">
                 <button class="group-header" onclick={() => toggleGroup(groupKey)}>
                   <span class="group-name">{groupLabels[groupType] ?? groupType}</span>
                   <span class="group-stats">
@@ -258,6 +259,7 @@
                       Fetch Previous <span class="range-hint">{fetchRange(gran.name, "previous", instNames)}</span>
                     </button>
                   {/if}
+                </div>
                 </div>
 
                 {#if expandedGroups.has(groupKey)}
@@ -299,6 +301,7 @@
             {@const stats = groupStats(gran.name, instNames)}
             {@const groupKey = `${gran.name}-${groupType}`}
             <div class="group-row">
+              <div class="group-top">
               <button class="group-header" onclick={() => toggleGroup(groupKey)}>
                 <span class="group-name">{groupType}</span>
                 <span class="group-stats">{stats.collected}/{stats.total} collected</span>
@@ -315,6 +318,7 @@
                     Fetch Previous <span class="range-hint">{fetchRange(gran.name, "previous", instNames)}</span>
                   </button>
                 {/if}
+              </div>
               </div>
               {#if expandedGroups.has(groupKey)}
                 <table class="inst-table">
@@ -414,17 +418,21 @@
   .group-row {
     margin-bottom: 8px;
   }
+  .group-top {
+    display: flex; align-items: center; gap: 0;
+    border-bottom: 1px solid #21262d;
+  }
   .group-header {
     display: flex; align-items: center; gap: 12px;
-    width: 100%; padding: 6px 0; background: none;
-    border: none; border-bottom: 1px solid #21262d;
+    flex: 1; padding: 6px 0; background: none;
+    border: none;
     color: #c9d1d9; cursor: pointer; text-align: left;
     font-size: 0.88em;
   }
   .group-name { font-weight: 600; color: #58a6ff; }
   .group-stats { flex: 1; color: #8b949e; font-size: 0.85em; }
   .group-actions {
-    display: flex; gap: 4px; padding: 6px 0;
+    display: flex; gap: 4px; align-items: center;
   }
   .inst-table {
     width: 100%; border-collapse: collapse; font-size: 0.82em;
