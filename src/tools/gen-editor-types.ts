@@ -19,12 +19,21 @@ const FILES: Record<string, string> = {
   "#core/broker.js": "src/core/broker.ts",
   "#data/instruments.js": "src/data/instruments.ts",
   "#backtest/types.js": "src/backtest/types.ts",
+  "#backtest/broker.js": "src/backtest/broker.ts",
 };
+
+/** Import paths that aren't available in the editor — strip these lines */
+const STRIP_IMPORTS = new Set(["./spread-model.js"]);
 
 const result: Record<string, string> = {};
 
 for (const [moduleId, relPath] of Object.entries(FILES)) {
-  const content = readFileSync(join(ROOT, relPath), "utf-8");
+  let content = readFileSync(join(ROOT, relPath), "utf-8");
+  // Strip imports from modules we don't bundle
+  content = content.split("\n").filter((line) => {
+    const match = line.match(/from\s+["']([^"']+)["']/);
+    return !match || !STRIP_IMPORTS.has(match[1]);
+  }).join("\n");
   result[moduleId] = content;
 }
 
