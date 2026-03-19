@@ -25,10 +25,18 @@ export async function load({ locals }) {
       modifiedAt = stat.mtime.toISOString();
     } catch { /* ignore */ }
 
-    // Best backtest for this strategy (by return %)
+    // Best "realistic" backtest for this strategy (by return %)
     const stratReports = reports.filter((r) => r.strategy === s.id);
-    const bestReport = stratReports.length > 0
-      ? stratReports.reduce((best, r) =>
+    const realisticReports = stratReports.filter((r) => {
+      const cfg = r.backtestConfig;
+      if (!cfg) return false;
+      const sm = cfg.spreadMultiplier ?? 1;
+      const tv = cfg.timeVaryingSpread ?? false;
+      // Realistic: spread > 1, time-varying, but not worst case (spread < 2 or delay < 2)
+      return sm > 1 && tv && (sm < 2 || (cfg.executionDelay ?? 0) < 2);
+    });
+    const bestReport = realisticReports.length > 0
+      ? realisticReports.reduce((best, r) =>
         (r.metrics?.returnPct ?? -Infinity) > (best.metrics?.returnPct ?? -Infinity) ? r : best
       ) : null;
 

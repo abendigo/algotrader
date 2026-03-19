@@ -27,9 +27,9 @@
 					<a href="/strategies/{strategy.id}/editor" class="strategy-card">
 						<div class="card-top">
 							<span class="card-name">{strategy.name}</span>
-							{#if strategy.backtestCount > 0 && strategy.bestReturn != null}
+							{#if strategy.bestReturn != null}
 								<span class="card-stat" class:pos={strategy.bestReturn > 0} class:neg={strategy.bestReturn < 0}>
-									{fmtPct(strategy.bestReturn)}
+									{fmtPct(strategy.bestReturn)} <span class="stat-label">realistic</span>
 								</span>
 							{/if}
 						</div>
@@ -129,6 +129,7 @@
 	}
 	.card-name { font-weight: 600; font-size: 1em; }
 	.card-stat { font-size: 0.9em; font-weight: 600; }
+	.stat-label { font-weight: 400; color: #484f58; font-size: 0.8em; }
 	.card-source { font-size: 0.75em; color: #8b949e; text-transform: uppercase; }
 	.pos { color: #3fb950; }
 	.neg { color: #f85149; }
