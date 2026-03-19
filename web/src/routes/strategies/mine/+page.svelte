@@ -333,7 +333,7 @@
 				{#each data.userStrategies as strategy}
 					<tr>
 						<td class="name">{strategy.name}</td>
-						<td class="mono">{strategy.id}.ts <span class="file-date">{strategy.modifiedAt ? new Date(strategy.modifiedAt).toLocaleDateString() : ""}</span></td>
+						<td class="mono">{strategy.id}.ts <span class="file-date">{strategy.modifiedAt ? new Date(strategy.modifiedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : ""}</span></td>
 						<td class="actions">
 							<a href="/strategies/edit/{strategy.id}" class="btn-action">Edit</a>
 							<button class="btn-action" onclick={() => { forkTarget = strategy.id; forkName = nextForkName(strategy.id); }}>Fork</button>
