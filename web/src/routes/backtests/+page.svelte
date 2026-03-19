@@ -46,6 +46,7 @@
 				<th>Max DD</th>
 				<th>Sharpe</th>
 				<th>When</th>
+				<th></th>
 			</tr>
 		</thead>
 		<tbody>
@@ -68,6 +69,10 @@
 						<td colspan="6" class="muted">—</td>
 					{/if}
 					<td class="when">{report.timestamp.slice(0, 16).replace("T", " ")}</td>
+					<td class="report-links" onclick={(e) => e.stopPropagation()}>
+						<a href="/backtests/{report.filename}" target="_blank">HTML</a>
+						<a href="/backtests/{report.filename}/csv">CSV</a>
+					</td>
 				</tr>
 				{#if isOpen}
 					<tr class="detail-row">
@@ -152,6 +157,8 @@
 	.pos { color: #3fb950; }
 	.neg { color: #f85149; }
 	.muted { color: #8b949e; }
+	.report-links { display: flex; gap: 8px; }
+	.report-links a { font-size: 0.85em; color: #58a6ff; }
 .detail-row td {
 		padding: 0;
 		border-bottom: 2px solid #21262d;

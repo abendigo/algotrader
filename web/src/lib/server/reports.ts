@@ -1,7 +1,10 @@
-import { readFileSync, readdirSync, existsSync } from 'fs';
+import { readFileSync, readdirSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
 import { DATA_DIR } from './paths.js';
+import { exportHTML, type ReportMeta } from '../../../../src/backtest/export-html.js';
+import { exportCSV } from '../../../../src/backtest/export-csv.js';
+import type { BacktestResult } from '../../../../src/backtest/types.js';
 const USERS_DIR = join(DATA_DIR, 'users');
 
 export interface ReportMetrics {
@@ -124,13 +127,51 @@ export function listReports(userId: string): ReportSummary[] {
 	}).sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 }
 
+/** Generate HTML and CSV from the JSON result if they don't exist yet. */
+function ensureGenerated(userId: string, filename: string): void {
+	const reportsDir = userReportsDir(userId);
+	const htmlPath = join(reportsDir, `${filename}.html`);
+	const csvPath = join(reportsDir, `${filename}.csv`);
+
+	if (existsSync(htmlPath) && existsSync(csvPath)) return;
+
+	const jsonPath = join(userBacktestsDir(userId), `${filename}.json`);
+	if (!existsSync(jsonPath)) return;
+
+	try {
+		const data = JSON.parse(readFileSync(jsonPath, 'utf-8')) as {
+			strategyName?: string;
+			strategyConfig?: Record<string, unknown>;
+			backtestConfig?: Record<string, unknown>;
+			paramDescriptions?: Record<string, string>;
+			result: BacktestResult;
+		};
+
+		if (!existsSync(reportsDir)) mkdirSync(reportsDir, { recursive: true });
+
+		const meta: ReportMeta | undefined =
+			(data.strategyConfig || data.backtestConfig || data.paramDescriptions)
+				? { strategyConfig: data.strategyConfig, backtestConfig: data.backtestConfig, paramDescriptions: data.paramDescriptions }
+				: undefined;
+
+		if (!existsSync(htmlPath)) {
+			writeFileSync(htmlPath, exportHTML(data.result, data.strategyName, meta));
+		}
+		if (!existsSync(csvPath)) {
+			writeFileSync(csvPath, exportCSV(data.result));
+		}
+	} catch { /* ignore generation errors */ }
+}
+
 export function getReportHtml(userId: string, filename: string): string | null {
+	ensureGenerated(userId, filename);
 	const path = join(userReportsDir(userId), `${filename}.html`);
 	if (!existsSync(path)) return null;
 	return readFileSync(path, 'utf-8');
 }
 
 export function getReportCsv(userId: string, filename: string): string | null {
+	ensureGenerated(userId, filename);
 	const path = join(userReportsDir(userId), `${filename}.csv`);
 	if (!existsSync(path)) return null;
 	return readFileSync(path, 'utf-8');
