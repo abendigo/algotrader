@@ -114,6 +114,13 @@
 	// Fork/Delete/Revert state
 	let forkTarget = $state<string | null>(null);
 	let forkName = $state("");
+
+	function nextForkName(baseId: string): string {
+		const existingIds = new Set(data.userStrategies.map((s: any) => s.id));
+		let n = 2;
+		while (existingIds.has(`${baseId}-v${n}`)) n++;
+		return `${baseId}-v${n}`;
+	}
 	let deleteTarget = $state<string | null>(null);
 	let revertTarget = $state<string | null>(null);
 
@@ -329,7 +336,7 @@
 						<td class="mono">{strategy.id}.ts</td>
 						<td class="actions">
 							<a href="/strategies/edit/{strategy.id}" class="btn-action">Edit</a>
-							<button class="btn-action" onclick={() => { forkTarget = strategy.id; forkName = strategy.id + "-v2"; }}>Fork</button>
+							<button class="btn-action" onclick={() => { forkTarget = strategy.id; forkName = nextForkName(strategy.id); }}>Fork</button>
 							{#if data.isAdmin}
 								<button class="btn-action btn-share" onclick={() => shareStrategy(strategy.id)}>Share</button>
 							{/if}
