@@ -48,6 +48,7 @@
 			target: monaco.languages.typescript.ScriptTarget.ES2022,
 			module: monaco.languages.typescript.ModuleKind.ES2015,
 			moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+			lib: ["es2022"],
 			strict: true,
 			allowNonTsExtensions: true,
 			baseUrl: "file:///",
