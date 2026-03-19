@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-03-18T15:37:54.937Z",
+  "generatedAt": "2026-03-19T03:17:54.406Z",
   "interfaces": {
     "Strategy": {
       "doc": "Abstract strategy interface",
@@ -570,7 +570,9 @@
         "OrderResult",
         "Position",
         "AccountSummary",
-        "Granularity"
+        "Granularity",
+        "GRANULARITY_SECONDS",
+        "GRANULARITIES_SORTED"
       ]
     },
     {

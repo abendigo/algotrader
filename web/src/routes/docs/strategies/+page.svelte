@@ -43,14 +43,15 @@
 			The same code runs in backtest, paper, and live modes &mdash; the runner swaps the broker implementation
 			while your strategy logic stays identical.
 		</p>
-		<p>Strategy files live in one of two places:</p>
-		<ul>
-			<li><strong>User strategies</strong> &mdash; <code>data/users/&lbrace;userId&rbrace;/strategies/my-strategy.ts</code></li>
-			<li><strong>Shared strategies</strong> &mdash; <code>data/shared/strategies/my-strategy.ts</code></li>
-		</ul>
+		<p>Strategy files can live in three places, loaded in priority order:</p>
+		<ol>
+			<li><strong>User strategies</strong> &mdash; <code>data/users/&lbrace;userId&rbrace;/strategies/my-strategy.ts</code> (private, highest priority)</li>
+			<li><strong>Shared strategies</strong> &mdash; <code>data/shared/strategies/my-strategy.ts</code> (community, in data volume)</li>
+			<li><strong>Built-in strategies</strong> &mdash; <code>src/strategies/my-strategy.ts</code> (shipped with the app, read-only)</li>
+		</ol>
 		<p>
-			User strategies take priority &mdash; if you have a file with the same name as a shared strategy,
-			yours will be loaded instead.
+			If you have a strategy with the same filename at multiple levels, the highest-priority
+			version is loaded. Copy a built-in or shared strategy to customize it.
 		</p>
 		<p>
 			All imports must use <code>#</code>-prefixed subpath aliases (e.g., <code>#core/strategy.js</code>)
@@ -189,6 +190,7 @@
   name: "My Strategy",              // Display name
   description: "What this strategy does...",  // Shown on the strategies page
   configFields: { ... },            // See Config Fields below
+  recovery: { mode: "clean" },      // See Live Recovery below
 };`}</code></pre>
 		<p>
 			If you don't export <code>strategyMeta</code>, the name is derived from the filename
@@ -234,10 +236,12 @@
 			In your constructor, read these from the config object and merge with defaults:
 		</p>
 		<pre><code>{`constructor(cfg: Record<string, unknown>) {
-  this.config = {
-    entryZ: (cfg.entryZ as number) ?? 2.0,
-    units: (cfg.units as number) ?? 10000,
-  };
+  // Clean empty strings from UI form values before merging
+  const cleaned: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(cfg)) {
+    if (v !== "" && v != null) cleaned[k] = v;
+  }
+  this.config = { ...DEFAULTS, ...cleaned };
 }`}</code></pre>
 	</section>
 
@@ -317,7 +321,7 @@ import type { SignalSnapshot } from "#backtest/types.js";
 			<li>Use <code>hedging: "forbidden"</code> unless you specifically need simultaneous long/short on the same pair. Most OANDA practice accounts use netting.</li>
 			<li>Always filter ticks by <code>tick.instrument</code> in <code>onTick</code> &mdash; you'll receive ticks for all instruments in your list.</li>
 			<li>Keep a <code>DEFAULT_CONFIG</code> object and merge with constructor args. Config values from the UI may be missing or zero.</li>
-			<li>The runner automatically closes all positions on shutdown, so <code>dispose()</code> only needs to clean up your internal state.</li>
+			<li>The live service automatically closes all positions on shutdown, so <code>dispose()</code> only needs to clean up your internal state.</li>
 			<li>Test with backtests first. Use the "Realistic" preset (1.5x spread, 0.5 pip slippage) to avoid overfitting to ideal conditions.</li>
 			<li>For cross-pair strategies, use the helpers from <code>#data/instruments.js</code> &mdash; <code>parsePair()</code> splits <code>"AUD_CAD"</code> into currencies, <code>findTriangle()</code> finds the USD legs for any cross.</li>
 			<li>The class name must end with <code>Strategy</code> (e.g., <code>MyCustomStrategy</code>). This is how the loader auto-discovers it.</li>
