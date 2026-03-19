@@ -95,6 +95,7 @@ export async function load({ params, locals }) {
     accountId: string;
     config: Record<string, unknown>;
     status: string;
+    lastError: string | null;
     startedAt: string;
     lastHeartbeat: string;
     trades: number;
@@ -124,6 +125,7 @@ export async function load({ params, locals }) {
             accountId: sf.accountId,
             config: sf.config ?? {},
             status: sf.status,
+            lastError: sf.lastError ?? null,
             startedAt: sf.startedAt,
             lastHeartbeat: sf.lastHeartbeat,
             trades: matched.length,

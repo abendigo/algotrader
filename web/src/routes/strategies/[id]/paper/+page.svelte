@@ -269,6 +269,9 @@
 												<span class="dl">Started</span><span class="dv">{started.toISOString().slice(0, 19).replace("T", " ")}</span>
 												<span class="dl">Ended</span><span class="dv">{last.toISOString().slice(0, 19).replace("T", " ")}</span>
 												<span class="dl">Duration</span><span class="dv">{durMin < 60 ? `${durMin}m` : `${Math.floor(durMin / 60)}h ${durMin % 60}m`}</span>
+												{#if ps.lastError}
+													<span class="dl">Error</span><span class="dv error-text">{ps.lastError}</span>
+												{/if}
 											</div>
 										</div>
 										{#if ps.config && Object.keys(ps.config).length > 0}
@@ -360,6 +363,7 @@
 	.detail-grid { display: grid; grid-template-columns: auto auto; gap: 2px 12px; font-size: 0.9em; }
 	.dl { color: #8b949e; }
 	.dv { color: #c9d1d9; }
+	.error-text { color: #f85149; }
 	.report-links { display: flex; gap: 8px; }
 	.report-links a { font-size: 0.85em; color: #58a6ff; }
 	.btn-link { background: none; border: none; color: #58a6ff; cursor: pointer; font-size: 0.85em; padding: 0; }
