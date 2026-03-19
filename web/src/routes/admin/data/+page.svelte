@@ -299,8 +299,8 @@
                           <td class="inst-actions">
                             {#if data.hasApiKey && !isGroupBusy(gran.name, [inst.name])}
                               {@const instCurrent = isLatestCurrent(gran.name, [inst.name])}
-                              <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])} title={instCurrent ? "Up to date" : fetchRange(gran.name, "latest", [inst.name])} disabled={instCurrent}>Latest {#if !instCurrent}<span class="range-hint">{fetchRange(gran.name, "latest", [inst.name])}</span>{:else}<span class="range-hint">up to date</span>{/if}</button>
-                              <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])} title={fetchRange(gran.name, "previous", [inst.name])}>Previous <span class="range-hint">{fetchRange(gran.name, "previous", [inst.name])}</span></button>
+                              <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])} title={instCurrent ? "Up to date" : fetchRange(gran.name, "latest", [inst.name])} disabled={instCurrent}>Fetch Latest {#if !instCurrent}<span class="range-hint">{fetchRange(gran.name, "latest", [inst.name])}</span>{:else}<span class="range-hint">up to date</span>{/if}</button>
+                              <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])} title={fetchRange(gran.name, "previous", [inst.name])}>Fetch Previous <span class="range-hint">{fetchRange(gran.name, "previous", [inst.name])}</span></button>
                             {/if}
                           </td>
                         </tr>
@@ -355,8 +355,8 @@
                         <td class="inst-actions">
                           {#if data.hasApiKey && !isGroupBusy(gran.name, [inst.name])}
                             {@const instCurrent2 = isLatestCurrent(gran.name, [inst.name])}
-                            <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])} disabled={instCurrent2}>Latest {#if !instCurrent2}<span class="range-hint">{fetchRange(gran.name, "latest", [inst.name])}</span>{:else}<span class="range-hint">up to date</span>{/if}</button>
-                            <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])}>Previous <span class="range-hint">{fetchRange(gran.name, "previous", [inst.name])}</span></button>
+                            <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "latest", [inst.name])} disabled={instCurrent2}>Fetch Latest {#if !instCurrent2}<span class="range-hint">{fetchRange(gran.name, "latest", [inst.name])}</span>{:else}<span class="range-hint">up to date</span>{/if}</button>
+                            <button class="btn-sm btn-collect" onclick={() => collectGroup(gran.name, "previous", [inst.name])}>Fetch Previous <span class="range-hint">{fetchRange(gran.name, "previous", [inst.name])}</span></button>
                           {/if}
                         </td>
                       </tr>
