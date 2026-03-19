@@ -67,12 +67,39 @@ export async function load({ params, locals }) {
   const strategyReports = allReports.filter((r) => r.strategy === id);
 
   // Past sessions for this strategy
+  // Load all trades for this user, indexed by account
+  interface TradeRecord {
+    strategy?: string;
+    instrument: string;
+    side: string;
+    units: number;
+    entryTime: string;
+    exitTime?: string;
+    pnl?: number;
+  }
+  const tradesByAccount = new Map<string, TradeRecord[]>();
+  const liveDir = join(DATA_DIR, "users", userId, "live");
+  if (existsSync(liveDir)) {
+    for (const acct of readdirSync(liveDir)) {
+      const tradesFile = join(liveDir, acct, "trades.jsonl");
+      if (!existsSync(tradesFile)) continue;
+      try {
+        const lines = readFileSync(tradesFile, "utf-8").split("\n").filter(Boolean);
+        tradesByAccount.set(acct, lines.map((l) => JSON.parse(l)));
+      } catch { /* ignore */ }
+    }
+  }
+
   interface PastSession {
     sessionId: string;
     accountId: string;
     status: string;
     startedAt: string;
     lastHeartbeat: string;
+    trades: number;
+    totalPnl: number;
+    winners: number;
+    losers: number;
   }
   const pastSessions: PastSession[] = [];
   const sessionsDir = join(DATA_DIR, "users", userId, "live-sessions");
@@ -81,12 +108,26 @@ export async function load({ params, locals }) {
       try {
         const sf = JSON.parse(readFileSync(join(sessionsDir, f), "utf-8"));
         if (sf.strategy === id) {
+          // Match trades to this session by account, strategy, and time window
+          const accountTrades = tradesByAccount.get(sf.accountId) ?? [];
+          const sessionStart = new Date(sf.startedAt).getTime();
+          const sessionEnd = new Date(sf.lastHeartbeat).getTime();
+          const matched = accountTrades.filter((t) => {
+            if (t.strategy && t.strategy !== id && t.strategy !== sf.strategy) return false;
+            const entryTime = new Date(t.entryTime).getTime();
+            return entryTime >= sessionStart && entryTime <= sessionEnd;
+          });
+
           pastSessions.push({
             sessionId: sf.sessionId,
             accountId: sf.accountId,
             status: sf.status,
             startedAt: sf.startedAt,
             lastHeartbeat: sf.lastHeartbeat,
+            trades: matched.length,
+            totalPnl: matched.reduce((sum, t) => sum + (t.pnl ?? 0), 0),
+            winners: matched.filter((t) => (t.pnl ?? 0) > 0).length,
+            losers: matched.filter((t) => (t.pnl ?? 0) < 0).length,
           });
         }
       } catch { /* ignore */ }

@@ -179,8 +179,10 @@
 					<tr>
 						<th>Status</th>
 						<th>Started</th>
-						<th>Last Active</th>
 						<th>Duration</th>
+						<th>Trades</th>
+						<th>W/L</th>
+						<th>P&L</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -196,8 +198,10 @@
 								</span>
 							</td>
 							<td>{started.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
-							<td>{last.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
 							<td class="muted">{durMin < 60 ? `${durMin}m` : `${Math.floor(durMin / 60)}h ${durMin % 60}m`}</td>
+							<td>{ps.trades}</td>
+							<td>{ps.winners}W / {ps.losers}L</td>
+							<td class:pos={ps.totalPnl > 0} class:neg={ps.totalPnl < 0}>{ps.totalPnl >= 0 ? "+" : ""}{ps.totalPnl.toFixed(2)}</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -240,4 +244,6 @@
 	.status-badge.running { background: #0d419d; color: #58a6ff; }
 	.status-badge.stopped { background: #21262d; color: #8b949e; }
 	.status-badge.error { background: #5d1a1a; color: #f85149; }
+	.pos { color: #3fb950; }
+	.neg { color: #f85149; }
 </style>
