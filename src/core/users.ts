@@ -7,7 +7,7 @@ import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { createDecipheriv, scryptSync } from "crypto";
 
-const DATA_DIR = join(import.meta.dirname, "../../data");
+const DATA_DIR = process.env.DATA_DIR ?? join(import.meta.dirname, "../../data");
 const USERS_FILE = join(DATA_DIR, "users.json");
 
 // Must match the encryption key in web/src/lib/server/auth.ts

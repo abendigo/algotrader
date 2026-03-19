@@ -13,7 +13,7 @@ services:
       - DOCKER_NETWORK=${COMPOSE_PROJECT_NAME:-algotrader}_default
       - LIVE_IMAGE=${LIVE_IMAGE:-ghcr.io/abendigo/algotrader:latest}
       - LIVE_PORT=9400
-      - DATA_VOLUME=algotrader-data
+      - DATA_VOLUME=${COMPOSE_PROJECT_NAME:-algotrader}_algotrader-data
     labels:
       - traefik.enable=true
       - traefik.http.routers.algotrader.rule=Host(`algotrader.markos.games`)
