@@ -6,8 +6,8 @@ import {
 } from "$lib/server/system-config.js";
 import {
   getInstrumentCoverage,
-} from "../../../../../../src/data/collect.js";
-import { GRANULARITIES_SORTED } from "../../../../../../src/core/types.js";
+} from "../../../../../src/data/collect.js";
+import { GRANULARITIES_SORTED } from "../../../../../src/core/types.js";
 
 export async function load() {
   const cache = getInstrumentCache();
