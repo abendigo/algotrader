@@ -110,7 +110,7 @@ export async function startContainer(userId: string, userEmail: string): Promise
         // The web container's /app/data is the source of truth
         `${getDataVolume()}:/app/data`,
       ],
-      AutoRemove: true,
+      AutoRemove: false,
       NetworkMode: DOCKER_NETWORK,
     },
     NetworkingConfig: {
