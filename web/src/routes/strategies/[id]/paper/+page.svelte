@@ -167,6 +167,40 @@
 			{/each}
 		</section>
 	{/if}
+
+	{#if data.pastSessions.length > 0}
+		<section>
+			<h2>Previous Sessions</h2>
+			<table class="past-table">
+				<thead>
+					<tr>
+						<th>Status</th>
+						<th>Started</th>
+						<th>Last Active</th>
+						<th>Duration</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each data.pastSessions as ps}
+						{@const started = new Date(ps.startedAt)}
+						{@const last = new Date(ps.lastHeartbeat)}
+						{@const durMs = last.getTime() - started.getTime()}
+						{@const durMin = Math.round(durMs / 60000)}
+						<tr>
+							<td>
+								<span class="status-badge" class:running={ps.status === "running"} class:stopped={ps.status === "stopped"} class:error={ps.status === "error"}>
+									{ps.status}
+								</span>
+							</td>
+							<td>{started.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
+							<td>{last.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</td>
+							<td class="muted">{durMin < 60 ? `${durMin}m` : `${Math.floor(durMin / 60)}h ${durMin % 60}m`}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</section>
+	{/if}
 </div>
 
 <style>
@@ -195,4 +229,12 @@
 	.btn-stop:hover { background: #5d1a1a; }
 	.btn-stop:disabled { opacity: 0.5; cursor: not-allowed; }
 	.session-phase { color: #8b949e; font-size: 0.85em; margin-top: 6px; }
+	.past-table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+	.past-table th { text-align: left; padding: 6px 10px; color: #8b949e; border-bottom: 2px solid #21262d; }
+	.past-table td { padding: 6px 10px; border-bottom: 1px solid #21262d; }
+	.past-table tr:hover td { background: #1c2128; }
+	.status-badge { padding: 1px 6px; border-radius: 3px; font-size: 0.8em; font-weight: 600; text-transform: uppercase; }
+	.status-badge.running { background: #0d419d; color: #58a6ff; }
+	.status-badge.stopped { background: #21262d; color: #8b949e; }
+	.status-badge.error { background: #5d1a1a; color: #f85149; }
 </style>

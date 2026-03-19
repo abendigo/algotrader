@@ -1,5 +1,5 @@
 import { error, redirect } from "@sveltejs/kit";
-import { existsSync, readFileSync, statSync } from "fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 import { DATA_DIR, PROJECT_ROOT } from "$lib/server/paths.js";
 import { listAllStrategies, hasSharedOrBuiltin } from "$lib/server/strategies.js";
@@ -66,6 +66,34 @@ export async function load({ params, locals }) {
   const allReports = listReports(userId);
   const strategyReports = allReports.filter((r) => r.strategy === id);
 
+  // Past sessions for this strategy
+  interface PastSession {
+    sessionId: string;
+    accountId: string;
+    status: string;
+    startedAt: string;
+    lastHeartbeat: string;
+  }
+  const pastSessions: PastSession[] = [];
+  const sessionsDir = join(DATA_DIR, "users", userId, "live-sessions");
+  if (existsSync(sessionsDir)) {
+    for (const f of readdirSync(sessionsDir).filter((f) => f.endsWith(".json"))) {
+      try {
+        const sf = JSON.parse(readFileSync(join(sessionsDir, f), "utf-8"));
+        if (sf.strategy === id) {
+          pastSessions.push({
+            sessionId: sf.sessionId,
+            accountId: sf.accountId,
+            status: sf.status,
+            startedAt: sf.startedAt,
+            lastHeartbeat: sf.lastHeartbeat,
+          });
+        }
+      } catch { /* ignore */ }
+    }
+    pastSessions.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  }
+
   return {
     strategy: {
       ...meta,
@@ -79,6 +107,7 @@ export async function load({ params, locals }) {
     accounts,
     availableGranularities,
     reports: strategyReports,
+    pastSessions,
     isAdmin: locals.user.role === "admin",
   };
 }
