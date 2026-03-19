@@ -252,7 +252,27 @@ export function cleanSession(userId: string, sessionId: string): boolean {
   }
 }
 
-// --- Backtest management (unchanged — in-memory, short-lived) ---
+// --- Backtest management ---
+
+import { eventBus } from "./event-bus.js";
+
+let btLastEmit = new Map<string, number>();
+const BT_THROTTLE_MS = 1000;
+
+function emitBacktestUpdate(bt: BacktestProcess): void {
+  const now = Date.now();
+  if ((btLastEmit.get(bt.id) ?? 0) + BT_THROTTLE_MS > now && bt.status === "running") return;
+  btLastEmit.set(bt.id, now);
+  if (bt.status !== "running") btLastEmit.delete(bt.id);
+  eventBus.emit(`backtest:${bt.userId}`, {
+    id: bt.id,
+    strategy: bt.strategy,
+    granularity: bt.granularity,
+    startedAt: bt.startedAt,
+    status: bt.status,
+    lastOutput: bt.output[bt.output.length - 1] ?? "",
+  });
+}
 
 export interface BacktestProcess {
   id: string;
@@ -350,6 +370,7 @@ export function startBacktest(
     if (bt.output.length > MAX_OUTPUT_LINES) {
       bt.output = bt.output.slice(-MAX_OUTPUT_LINES);
     }
+    emitBacktestUpdate(bt);
   };
 
   child.stdout?.on("data", appendOutput);
@@ -358,6 +379,7 @@ export function startBacktest(
   child.on("exit", (code) => {
     bt.exitCode = code;
     bt.status = code === 0 ? "done" : "error";
+    emitBacktestUpdate(bt);
   });
 
   backtests.set(id, bt);

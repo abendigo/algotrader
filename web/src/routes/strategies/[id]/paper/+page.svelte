@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onMount, onDestroy } from "svelte";
+	import { onMount } from "svelte";
+	import { connectSSE } from "$lib/sse.js";
 
 	let { data } = $props();
 
@@ -97,31 +98,32 @@
 	}
 
 	let sessions = $state<Session[]>([]);
-	let pollInterval: ReturnType<typeof setInterval> | null = null;
 	let stoppingSessions = $state<Set<string>>(new Set());
 	let prevActiveIds = new Set<string>();
 
-	async function fetchSessions() {
-		try {
-			const res = await fetch("/api/live?type=sessions");
-			if (!res.ok) return;
-			const all: Session[] = await res.json();
-			sessions = all.filter((s) => s.strategyName === data.strategy.id || s.strategyName === data.strategy.name);
+	function handleSessions(all: Session[]) {
+		sessions = all.filter((s) => s.strategyName === data.strategy.id || s.strategyName === data.strategy.name);
 
-			// If a session that was active is now gone or stopped, refresh past sessions
-			const currentActiveIds = new Set(sessions.filter((s) => s.running && !s.stale).map((s) => s.sessionId ?? ""));
-			for (const id of prevActiveIds) {
-				if (!currentActiveIds.has(id)) {
-					await invalidateAll();
-					break;
-				}
+		const currentActiveIds = new Set(sessions.filter((s) => s.running && !s.stale).map((s) => s.sessionId ?? ""));
+		for (const id of prevActiveIds) {
+			if (!currentActiveIds.has(id)) {
+				invalidateAll();
+				break;
 			}
-			prevActiveIds = currentActiveIds;
-		} catch { /* ignore */ }
+		}
+		prevActiveIds = currentActiveIds;
 	}
 
-	onMount(() => { fetchSessions(); pollInterval = setInterval(fetchSessions, 3000); });
-	onDestroy(() => { if (pollInterval) clearInterval(pollInterval); });
+	onMount(() => {
+		// Initial fetch
+		fetch("/api/live?type=sessions").then(async (res) => {
+			if (res.ok) handleSessions(await res.json());
+		}).catch(() => {});
+
+		return connectSSE("/api/live/stream", (event) => {
+			if (event.sessions) handleSessions(event.sessions);
+		});
+	});
 
 	// Filter past sessions to exclude ones currently active
 	const activeSessionIds = $derived(new Set(sessions.map((s) => s.sessionId)));

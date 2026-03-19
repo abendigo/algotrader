@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { onMount, onDestroy } from "svelte";
+	import { onMount } from "svelte";
 	import { invalidateAll } from "$app/navigation";
+	import { connectSSE } from "$lib/sse.js";
 
 	let { data } = $props();
 	// svelte-ignore state_referenced_locally
@@ -25,7 +26,6 @@
 	}
 
 	let runningBacktests = $state<RunningBacktest[]>([]);
-	let btPollInterval: ReturnType<typeof setInterval> | null = null;
 	let actionMessage = $state("");
 	let actionError = $state("");
 	let running = $state(false);
@@ -101,24 +101,32 @@
 		strategyConfig = newConfig;
 	});
 
-	async function pollBacktests() {
-		try {
-			const res = await fetch("/api/backtests?type=running");
-			if (res.ok) {
-				const all: RunningBacktest[] = await res.json();
-				runningBacktests = all.filter((b) => b.strategy === data.strategy.id);
-				if (all.some((b) => b.status !== "running")) {
-					await invalidateAll();
-				}
-			}
-		} catch { /* ignore */ }
+	function handleBacktestUpdate(bt: RunningBacktest) {
+		if (bt.strategy !== data.strategy.id) return;
+		const idx = runningBacktests.findIndex((b) => b.id === bt.id);
+		if (idx >= 0) {
+			runningBacktests[idx] = bt;
+		} else {
+			runningBacktests = [...runningBacktests, bt];
+		}
+		if (bt.status !== "running") {
+			invalidateAll();
+		}
 	}
 
 	onMount(() => {
-		pollBacktests();
-		btPollInterval = setInterval(pollBacktests, 3000);
+		// Initial fetch
+		fetch("/api/backtests?type=running").then(async (res) => {
+			if (res.ok) {
+				const all: RunningBacktest[] = await res.json();
+				runningBacktests = all.filter((b) => b.strategy === data.strategy.id);
+			}
+		}).catch(() => {});
+
+		return connectSSE("/api/backtests/stream", (bt) => {
+			handleBacktestUpdate(bt);
+		});
 	});
-	onDestroy(() => { if (btPollInterval) clearInterval(btPollInterval); });
 
 	async function runBacktest() {
 		running = true;
@@ -145,7 +153,6 @@
 		const result = await res.json();
 		if (res.ok) {
 			actionMessage = result.message;
-			await pollBacktests();
 		} else {
 			actionError = result.error;
 		}

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onMount, onDestroy } from "svelte";
+	import { onMount } from "svelte";
+	import { connectSSE } from "$lib/sse.js";
 
 	interface Indicator {
 		label: string;
@@ -45,42 +46,39 @@
 	}
 
 	let sessions = $state<Session[]>([]);
-	let sessionPollInterval: ReturnType<typeof setInterval> | null = null;
 
 	const activeSessions = $derived(sessions.filter((s) => s.running && !s.stale));
 	const totalTicks = $derived(sessions.reduce((sum, s) => sum + (s.tickCount ?? 0), 0));
 
+	async function fetchTradeLogs(allSessions: Session[]): Promise<void> {
+		await Promise.all(
+			allSessions.map(async (s) => {
+				try {
+					let logUrl = `/api/live?type=log&account=${s.accountId}`;
+					if (s.sessionId) logUrl += `&sessionId=${s.sessionId}`;
+					const logRes = await fetch(logUrl);
+					if (logRes.ok) s.tradeLog = await logRes.json();
+				} catch { /* ignore */ }
+			})
+		);
+	}
+
 	onMount(() => {
-		// Poll sessions every 2 seconds
-		const fetchSessions = async () => {
-			try {
-				const res = await fetch("/api/live?type=sessions");
-				if (!res.ok) return;
-				const allSessions: Session[] = await res.json();
+		// Initial fetch via REST (SSE may take a moment to connect)
+		fetch("/api/live?type=sessions").then(async (res) => {
+			if (!res.ok) return;
+			const all: Session[] = await res.json();
+			await fetchTradeLogs(all);
+			sessions = all;
+		}).catch(() => {});
 
-				// Fetch trade logs for each session (filtered by sessionId if available)
-				await Promise.all(
-					allSessions.map(async (s) => {
-						try {
-							let logUrl = `/api/live?type=log&account=${s.accountId}`;
-							if (s.sessionId) logUrl += `&sessionId=${s.sessionId}`;
-							const logRes = await fetch(logUrl);
-							if (logRes.ok) s.tradeLog = await logRes.json();
-						} catch { /* ignore */ }
-					})
-				);
-
-				sessions = allSessions;
-			} catch {
-				// ignore
+		return connectSSE("/api/live/stream", async (data) => {
+			if (data.sessions) {
+				const all: Session[] = data.sessions;
+				await fetchTradeLogs(all);
+				sessions = all;
 			}
-		};
-		fetchSessions();
-		sessionPollInterval = setInterval(fetchSessions, 2000);
-	});
-
-	onDestroy(() => {
-		if (sessionPollInterval) clearInterval(sessionPollInterval);
+		});
 	});
 
 	let stoppingSessions = $state<Set<string>>(new Set());

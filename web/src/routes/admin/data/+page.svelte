@@ -26,7 +26,10 @@
   let expandedGrans = $state<Set<string>>(new Set());
   let expandedGroups = $state<Set<string>>(new Set());
 
-  // Fetch jobs on mount, then poll while any are running
+  import { onMount } from "svelte";
+  import { connectSSE } from "$lib/sse.js";
+
+  // Initial fetch + SSE for real-time updates
   async function fetchJobs() {
     try {
       const res = await fetch("/api/admin/collect");
@@ -37,19 +40,20 @@
     } catch { /* ignore */ }
   }
 
-  import { onMount } from "svelte";
-  onMount(() => { fetchJobs(); });
-
-  $effect(() => {
-    const hasRunning = collectJobs.some((j) => j.progress.status === "running");
-    if (!hasRunning) return;
-    const interval = setInterval(async () => {
-      await fetchJobs();
-      if (!collectJobs.some((j) => j.progress.status === "running")) {
-        await invalidateAll();
+  let hadRunning = false;
+  onMount(() => {
+    fetchJobs();
+    return connectSSE("/api/admin/collect/stream", (data) => {
+      if (data.jobs) {
+        const wasRunning = hadRunning;
+        collectJobs = data.jobs;
+        hadRunning = data.jobs.some((j: any) => j.progress.status === "running");
+        // Refresh page data when jobs finish
+        if (wasRunning && !hadRunning) {
+          invalidateAll();
+        }
       }
-    }, 2000);
-    return () => clearInterval(interval);
+    });
   });
 
   function toggleGran(name: string) {

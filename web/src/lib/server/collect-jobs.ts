@@ -4,11 +4,22 @@
  */
 
 import type { CollectProgress } from "../../../../src/data/collect.js";
+import { eventBus } from "./event-bus.js";
+
+let lastEmit = 0;
+const THROTTLE_MS = 500;
+
+function emitUpdate(): void {
+  const now = Date.now();
+  if (now - lastEmit < THROTTLE_MS) return;
+  lastEmit = now;
+  eventBus.emit("collect", { jobs: getAllJobs() });
+}
 
 export interface CollectJob {
   id: string;
   granularity: string;
-  direction: "latest" | "previous";
+  direction: "latest" | "previous" | "all";
   label?: string;
   instruments?: string[];
   startedAt: string;
@@ -18,7 +29,7 @@ export interface CollectJob {
 const jobs = new Map<string, CollectJob>();
 let jobCounter = 0;
 
-export function createJob(granularity: string, direction: "latest" | "previous", instruments?: string[], label?: string): CollectJob {
+export function createJob(granularity: string, direction: "latest" | "previous" | "all", instruments?: string[], label?: string): CollectJob {
   const id = `collect-${++jobCounter}`;
   const job: CollectJob = {
     id,
@@ -39,12 +50,16 @@ export function createJob(granularity: string, direction: "latest" | "previous",
     },
   };
   jobs.set(id, job);
+  emitUpdate();
   return job;
 }
 
 export function updateJob(id: string, progress: CollectProgress): void {
   const job = jobs.get(id);
-  if (job) job.progress = progress;
+  if (job) {
+    job.progress = progress;
+    emitUpdate();
+  }
 }
 
 export function getJob(id: string): CollectJob | undefined {
@@ -63,6 +78,8 @@ export function cancelJob(id: string): boolean {
   const job = jobs.get(id);
   if (!job || job.progress.status !== "running") return false;
   job.progress = { ...job.progress, status: "error", message: "Cancelled by user" };
+  lastEmit = 0; // force immediate emit
+  emitUpdate();
   return true;
 }
 
