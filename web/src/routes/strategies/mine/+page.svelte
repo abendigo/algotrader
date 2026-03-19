@@ -646,7 +646,7 @@ tttttt{/if}
 	tr:hover td { background: #1c2128; }
 	.name { font-weight: 600; }
 	.mono { font-family: monospace; font-size: 0.85em; color: #8b949e; }
-	.file-date { color: #484f58; font-size: 0.9em; margin-left: 8px; }
+	.file-date { color: #8b949e; margin-left: 8px; }
 	.source { color: #8b949e; font-size: 0.85em; }
 	.source.private { color: #58a6ff; }
 	.actions {
