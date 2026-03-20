@@ -110,6 +110,7 @@ export class CarryMomentumStrategy implements Strategy {
   private prices = new Map<string, number>();
   private totalBars = 0;
   private lastRebalanceBar = 0;
+  private lastBarHour = -1;
   private warmedUp = false;
 
   constructor(config?: Record<string, unknown>) {
@@ -176,8 +177,11 @@ export class CarryMomentumStrategy implements Strategy {
       }
     }
 
-    // Count total bars (use first instrument as the clock)
+    // Count hourly bars (dedup by hour so live ticks don't over-count)
     if (tick.instrument === this.instruments[0]) {
+      const hour = Math.floor(tick.timestamp / 3600_000);
+      if (hour === this.lastBarHour) return;
+      this.lastBarHour = hour;
       this.totalBars++;
 
       // Wait for warmup
