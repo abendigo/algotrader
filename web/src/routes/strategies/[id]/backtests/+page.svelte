@@ -50,7 +50,6 @@
 		H1: 3600, H2: 7200, H3: 10800, H4: 14400,
 		H6: 21600, H8: 28800, H12: 43200,
 		D: 86400, W: 604800, M: 2592000,
-		D: 86400, W: 604800,
 	};
 
 	const granMap = $derived.by(() => {
@@ -63,6 +62,25 @@
 		return m;
 	});
 	const granularities = $derived([...granMap.keys()].sort((a, b) => (GRAN_SECONDS[a] ?? 0) - (GRAN_SECONDS[b] ?? 0)));
+
+	function granLabel(g: string): string {
+		const range = granMap.get(g);
+		if (!range) return g;
+		const from = range.from.slice(0, 10);
+		const to = range.to.slice(0, 10);
+		const days = Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000);
+		let duration: string;
+		if (days >= 365) {
+			const months = Math.round(days / 30.44);
+			duration = `${months} months`;
+		} else if (days >= 30) {
+			const weeks = Math.round(days / 7);
+			duration = `${weeks} weeks`;
+		} else {
+			duration = `${days} days`;
+		}
+		return `${g} — ${duration} (${from} – ${to})`;
+	}
 
 	const presets: Record<string, { label: string; spreadMult: number; slippage: number; execDelay: number; timeVarying: boolean }> = {
 		ideal: { label: "Ideal", spreadMult: 1.0, slippage: 0, execDelay: 0, timeVarying: false },
@@ -232,7 +250,7 @@
 		<div class="action-row">
 			<select bind:value={backtestGranularity}>
 				{#each granularities as g}
-					<option value={g}>{g}</option>
+					<option value={g}>{granLabel(g)}</option>
 				{/each}
 			</select>
 			<select bind:value={btPreset} onchange={(e) => applyPreset((e.target as HTMLSelectElement).value)}>
