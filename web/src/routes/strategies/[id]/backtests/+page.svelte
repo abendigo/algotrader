@@ -358,12 +358,12 @@
 							<td>{report.granularity}</td>
 							<td class="preset">{presetLabel(report.backtestConfig)}</td>
 							{#if m}
-								<td class:pos={m.returnPct > 0} class:neg={m.returnPct < 0}>{formatPct(m.returnPct)}</td>
-								<td class:pos={m.profitFactor > 1} class:neg={m.profitFactor < 1}>{m.profitFactor.toFixed(2)}</td>
-								<td>{(m.winRate * 100).toFixed(0)}%</td>
-								<td>{m.totalTrades}</td>
-								<td class="neg">{formatPct(-m.maxDrawdownPct)}</td>
-								<td>{m.sharpeRatio.toFixed(2)}</td>
+								<td class:pos={(m.returnPct ?? 0) > 0} class:neg={(m.returnPct ?? 0) < 0}>{formatPct(m.returnPct ?? 0)}</td>
+								<td class:pos={(m.profitFactor ?? 0) > 1} class:neg={(m.profitFactor ?? 0) < 1}>{(m.profitFactor ?? 0).toFixed(2)}</td>
+								<td>{((m.winRate ?? 0) * 100).toFixed(0)}%</td>
+								<td>{m.totalTrades ?? 0}</td>
+								<td class="neg">{formatPct(-(m.maxDrawdownPct ?? 0))}</td>
+								<td>{(m.sharpeRatio ?? 0).toFixed(2)}</td>
 							{:else}
 								<td colspan="6" class="muted">—</td>
 							{/if}
