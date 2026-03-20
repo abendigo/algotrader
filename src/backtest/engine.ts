@@ -48,6 +48,16 @@ export async function runBacktest(
   }
 
   const broker = new BacktestBroker(initialBalance, spread, spreadMultiplier, timeVaryingSpread, slippagePips, accountCurrency);
+
+  // Set financing rates if provided
+  if (config.financingRates) {
+    const ratesMap = new Map<string, { longRate: number; shortRate: number }>();
+    for (const [inst, rates] of Object.entries(config.financingRates)) {
+      ratesMap.set(inst, rates);
+    }
+    broker.setFinancingRates(ratesMap);
+  }
+
   const ctx = { broker };
 
   // Initialize strategy
@@ -102,6 +112,7 @@ export async function runBacktest(
   // Compute results
   const trades = broker.getTrades();
   const finalBalance = broker.getEquity();
+  const totalFinancing = broker.getTotalFinancing();
 
   return {
     config,

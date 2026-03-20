@@ -21,6 +21,7 @@ import { loadStrategy } from "../core/strategy-loader.js";
 import { GRANULARITY_SECONDS, type Granularity } from "../core/types.js";
 import { runBacktest, printResults } from "./engine.js";
 import { SPREADS } from "../data/spreads.js";
+import { FINANCING_RATES } from "../data/financing-rates.js";
 import type { BacktestConfig } from "./types.js";
 
 const strategyName = process.argv[2] || "lead-lag";
@@ -67,6 +68,7 @@ const units = unitsFlag ? parseInt(unitsFlag, 10) : Math.round(initialBalance * 
 const stopFracFlag = process.argv.find((a) => a.startsWith("--stop-frac="))?.split("=")[1];
 const stopRangeFraction = stopFracFlag ? parseFloat(stopFracFlag) : undefined;
 const accountCurrency = process.argv.find((a) => a.startsWith("--currency="))?.split("=")[1] ?? "USD";
+const useFinancing = process.argv.includes("--financing");
 const skipDaysFlag = process.argv.find((a) => a.startsWith("--skip-days="))?.split("=")[1];
 const skipDays = skipDaysFlag ? skipDaysFlag.split(",").map(Number) : undefined;
 const userFlag = process.argv.find((a) => a.startsWith("--user="))?.split("=")[1];
@@ -97,6 +99,7 @@ const backtestConfig: BacktestConfig = {
   fromDate,
   toDate,
   accountCurrency,
+  financingRates: useFinancing ? FINANCING_RATES : undefined,
 };
 
 // Build strategy config — combine hardcoded flags with generic --config.X overrides

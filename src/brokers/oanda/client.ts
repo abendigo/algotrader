@@ -128,6 +128,34 @@ export class OandaClient {
     );
   }
 
+  /** Fetch financing rates for instruments */
+  async getFinancingRates(instruments: Instrument[]): Promise<Map<string, { longRate: number; shortRate: number }>> {
+    const rates = new Map<string, { longRate: number; shortRate: number }>();
+    // Fetch instrument details which include financing info
+    const params = new URLSearchParams({
+      instruments: instruments.join(","),
+    });
+    const data = await this.request<{
+      instruments: Array<{
+        name: string;
+        financing?: {
+          longRate: string;
+          shortRate: string;
+        };
+      }>;
+    }>(`/v3/accounts/${this.accountId}/instruments?${params}`);
+
+    for (const inst of data.instruments) {
+      if (inst.financing) {
+        rates.set(inst.name, {
+          longRate: parseFloat(inst.financing.longRate),
+          shortRate: parseFloat(inst.financing.shortRate),
+        });
+      }
+    }
+    return rates;
+  }
+
   streamPrices(
     instruments: Instrument[],
     onTick: (tick: Tick) => void,

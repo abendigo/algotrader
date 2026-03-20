@@ -41,6 +41,12 @@ export class BacktestBroker implements Broker {
   private accountCurrency: string;
   private pendingEntrySignal?: SignalSnapshot;
   private pendingExitSignal?: SignalSnapshot;
+  /** Annual financing rates per instrument: { longRate, shortRate } */
+  private financingRates = new Map<string, { longRate: number; shortRate: number }>();
+  /** Last date financing was applied per instrument (to apply once per day) */
+  private lastFinancingDate = new Map<string, string>();
+  /** Total financing earned/paid */
+  private totalFinancing = 0;
 
   constructor(
     initialBalance: number,
@@ -91,9 +97,55 @@ export class BacktestBroker implements Broker {
     this.pendingExitSignal = signal;
   }
 
+  /** Set financing rates for instruments (annual rates as decimals, e.g., 0.05 = 5%) */
+  setFinancingRates(rates: Map<string, { longRate: number; shortRate: number }>): void {
+    this.financingRates = rates;
+  }
+
+  /** Get total financing earned/paid */
+  getTotalFinancing(): number {
+    return this.totalFinancing;
+  }
+
   /** Called by the engine on each tick to update prices */
   setTick(tick: Tick): void {
     this.currentTick.set(tick.instrument, tick);
+    // Apply daily financing to open positions at day boundary
+    this.applyFinancing(tick);
+  }
+
+  /** Apply daily financing to an open position if we've crossed a day boundary */
+  private applyFinancing(tick: Tick): void {
+    const pos = this.positions.get(tick.instrument);
+    if (!pos) return;
+
+    const rates = this.financingRates.get(tick.instrument);
+    if (!rates) return;
+
+    const dateStr = new Date(tick.timestamp).toISOString().slice(0, 10);
+    const lastDate = this.lastFinancingDate.get(tick.instrument);
+    if (lastDate === dateStr) return; // already applied today
+    if (!lastDate) {
+      // First tick for this position today — just record the date
+      this.lastFinancingDate.set(tick.instrument, dateStr);
+      return;
+    }
+
+    this.lastFinancingDate.set(tick.instrument, dateStr);
+
+    // Calculate financing: position_value × daily_rate
+    // Rate is annual, divide by 365 for daily
+    const annualRate = pos.side === "buy" ? rates.longRate : rates.shortRate;
+    const dailyRate = annualRate / 365;
+    const mid = (tick.bid + tick.ask) / 2;
+    const positionValue = mid * pos.units;
+    const financingInQuote = positionValue * dailyRate;
+
+    // Convert to account currency
+    const { pnl: financingInAccount } = this.convertToAccountCurrency(financingInQuote, tick.instrument);
+
+    this.balance += financingInAccount;
+    this.totalFinancing += financingInAccount;
   }
 
   /** Get all completed trades */

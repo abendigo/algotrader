@@ -24,6 +24,8 @@ export interface BacktestConfig {
   slippagePips?: number;
   /** Account currency for P&L conversion (default: "USD") */
   accountCurrency?: string;
+  /** Financing rates per instrument: { longRate, shortRate } (annual, as decimals) */
+  financingRates?: Record<string, { longRate: number; shortRate: number }>;
 }
 
 /** Signal snapshot captured at entry or exit */
