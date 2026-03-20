@@ -61,7 +61,14 @@
 		}
 		return m;
 	});
-	const granularities = $derived([...granMap.keys()].sort((a, b) => (GRAN_SECONDS[a] ?? 0) - (GRAN_SECONDS[b] ?? 0)));
+	const granularities = $derived([...granMap.keys()]
+		.filter((g) => {
+			const range = granMap.get(g);
+			if (!range || !range.from || !range.to) return false;
+			const days = Math.round((new Date(range.to).getTime() - new Date(range.from).getTime()) / 86_400_000);
+			return days > 0 && !isNaN(days);
+		})
+		.sort((a, b) => (GRAN_SECONDS[a] ?? 0) - (GRAN_SECONDS[b] ?? 0)));
 
 	function granLabel(g: string): string {
 		const range = granMap.get(g);
@@ -69,6 +76,7 @@
 		const from = range.from.slice(0, 10);
 		const to = range.to.slice(0, 10);
 		const days = Math.round((new Date(to).getTime() - new Date(from).getTime()) / 86_400_000);
+		if (!days || isNaN(days)) return g;
 		let duration: string;
 		if (days >= 365) {
 			const months = Math.round(days / 30.44);
